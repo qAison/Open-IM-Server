@@ -1,4 +1,4 @@
-# Open-IM-Server
+# Open-IM-Server 
 
 ![avatar](https://github.com/OpenIMSDK/Open-IM-Server/blob/main/docs/open-im-logo.png)
 
@@ -27,7 +27,7 @@ By deployment of the Open-IM-Server on the customer's server, developers can int
 ## Community
 
 - Join the Telegram-OpenIM group: https://t.me/joinchat/zSJLPaHBNLZmODI1
-- 中文官网访问这里：[Open-IM中文官网](https://www.rentsoft.cn/developer)
+- 中文官网访问这里：[Open-IM中文开发文档](https://doc.rentsoft.cn/)
 
 ## Quick start
 
@@ -42,7 +42,7 @@ By deployment of the Open-IM-Server on the customer's server, developers can int
 2. Clone the Open-IM project to your server.
 
    ```
-   git clone https://github.com/OpenIMSDK/Open-IM-Server.git
+   git clone https://github.com/OpenIMSDK/Open-IM-Server.git --recursive
    ```
 
 3. Build and start Service.
@@ -50,7 +50,7 @@ By deployment of the Open-IM-Server on the customer's server, developers can int
     1. Shell authorization
 
        ```
-       #cd Open-IM-server/scrip
+       #cd Open-IM-server/script
        
        chmod +x *.sh
        ```
@@ -86,7 +86,7 @@ All images are available at https://hub.docker.com/r/lyt1123/open_im_server
 3. Clone the Open-IM project to your server.
 
    ```
-   git clone https://github.com/OpenIMSDK/Open-IM-Server.git
+   git clone https://github.com/OpenIMSDK/Open-IM-Server.git --recursive
    ```
 
 4. Start docker-compose with one click(Docker automatically pulls all images)
@@ -144,97 +144,7 @@ All images are available at https://hub.docker.com/r/lyt1123/open_im_server
 - start_all.sh&&stop_all.sh
     - Total script, start all services and close all services
 
-### Server-side authentication api graphic explanation of the login authentication process
-
-- **User Register**
-
-    - **Request URL**
-
-      ```
-      http://x.x.x.x:10000/auth/user_register
-      ```
-
-    - **Request method**
-
-      ```
-      POST
-      ```
-
-    - **Parameter**
-
-      | parameter name | required | Type   | Description                                                  |
-          | -------------- | -------- | ------ | ------------------------------------------------------------ |
-      | secret         | Y        | string | The secret key used by the app server to connect to the sdk server. The maximum length is 32 characters. It must be ensured that the secret keys of the app server and the sdk server are the same. There is a risk of secret leakage, and it is best to save it on the user server. |
-      | platform       | Y        | int    | Platform type iOS 1, Android 2, Windows 3, OSX 4, WEB 5, applet 6, linux 7 |
-      | uid            | Y        | string | User ID, with a maximum length of 64 characters, must be unique within an APP |
-      | name           | Y        | string | User nickname, the maximum length is 64 characters, can be set as an empty string |
-      | icon           | N        | string | User avatar, the maximum length is 1024 bytes, can be set as an empty string |
-      | gender         | N        | int    | User gender, 0 means unknown, 1 means male, 2 female means female, others will report parameter errors |
-      | mobile         | N        | string | User mobile, the maximum length is 32 characters, non-Mainland China mobile phone numbers need to fill in the country code (such as the United States: +1-xxxxxxxxxx) or the area code (such as Hong Kong: +852-xxxxxxxx), which can be set as an empty string |
-      | birth          | N        | string | The birthday of the user, the maximum length is 16 characters, can be set as an empty string |
-      | email          | N        | string | User email, the maximum length is 64 characters, can be set as an empty string |
-      | ex             | N        | string | User business card extension field, the maximum length is 1024 characters, users can extend it by themselves, it is recommended to encapsulate it into a JSON string, or set it to an empty string |
-
-    - **Return Parameter**
-
-      ```
-      {
-         "errCode": 0,
-         "errMsg": "",
-         "data":{
-            "uid": "",
-            "token": "",
-            "expiredTime": 0,
-         }
-      }
-      ```
-
-- **Refresh Token**
-
-    - **Request URL**
-
-      ```
-      http://x.x.x.x:10000/auth/user_token
-      ```
-
-    - **Request method**
-
-      ```
-      POST
-      ```
-
-    - **Parameter**
-
-      | parameter name | required | Type   | Description                                                  |
-          | -------------- | -------- | ------ | ------------------------------------------------------------ |
-      | secret         | Y        | string | The secret key used by the app server to connect to the sdk server. The maximum length is 32 characters. It must be ensured that the secret keys of the app server and the sdk server are the same. There is a risk of secret leakage, and it is best to save it on the user server. |
-      | platform       | Y        | int    | Platform type iOS 1, Android 2, Windows 3, OSX 4, WEB 5, applet 6, linux 7 |
-      | uid            | Y        | string | User ID, with a maximum length of 64 characters, must be unique within an APP |
-
-    - **Return Parameter**
-
-      ```
-      {
-         "errCode": 0,
-         "errMsg": "",
-         "data":{
-            "uid": "",
-            "token": "",
-            "expiredTime": 0,
-         }
-      }
-      ```
-
-- **API call description**
-
-  ```
-  app：app client
-  app-server：app server
-  open-im-sdk：open-im source sdk
-  open-im-server：open-im source sdk service 
-  ```
-
-- **Authentication Clow Chart**
+## Authentication Clow Chart 
 
 ![avatar](https://github.com/OpenIMSDK/Open-IM-Server/blob/main/docs/open-im-server.png)
 
@@ -244,4 +154,4 @@ All images are available at https://hub.docker.com/r/lyt1123/open_im_server
 
 ## License
 
-Open-IM-Server is under the Apache 2.0 license. See the [LICENSE](https://github.com/OpenIMSDK/Open-IM-Server/blob/main/LICENSE) file for details.
+Open-IM-Server is under the Apache 2.0 license. See the [LICENSE](https://github.com/OpenIMSDK/Open-IM-Server/blob/main/LICENSE) file for details
