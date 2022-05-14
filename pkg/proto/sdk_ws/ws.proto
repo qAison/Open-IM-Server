@@ -1,7 +1,6 @@
 syntax = "proto3";
 option go_package = "./sdk_ws;server_api_params";
-package server_api_params;//The package name to which the proto file belongs
-//option go_package = "./sdk_ws;open_im_sdk";//The generated go pb file is in the current directory, and the package name is open_im_sdk
+package server_api_params;
 
 ////////////////////////////////base///////////////////////////////
 
@@ -33,6 +32,7 @@ message GroupMemberFullInfo {
   int32 joinSource = 8;
   string operatorUserID = 9;
   string ex = 10;
+  uint32 muteEndTime = 11;
 }
 
 message PublicUserInfo{
@@ -105,8 +105,71 @@ message FriendRequest{
   string ex = 15;
 }
 
-///////////////////////////////////base end/////////////////////////////////////
+///////////////////////////////////organization/////////////////////////////////////
 
+message Department {
+  string departmentID = 1;
+  string faceURL = 2;
+  string name = 3;
+  string parentID = 4;
+  int32 order = 5;
+  int32 departmentType = 6;
+  uint32 createTime = 7;
+  uint32 subDepartmentNum = 8;
+  uint32 memberNum = 9;
+  string ex        = 10;
+}
+
+
+
+message OrganizationUser  {
+    string userID      = 1;
+    string  nickname    = 2;
+    string   englishName = 3;
+    string  faceURL    = 4;
+    int32   gender     = 5;
+    string   mobile      = 6;
+    string telephone   = 7;
+    uint32 birth     = 8;
+    string  email    = 9;
+    uint32   createTime = 10;
+    string ex      = 11;
+}
+
+message DepartmentMember {
+      string userID = 1;
+      string departmentID = 2;
+      int32 order = 3;
+      string position = 4;
+      int32 leader = 5;
+      int32 status = 6;
+      string ex     = 7;
+}
+
+
+message  UserDepartmentMember {
+  OrganizationUser organizationUser = 1;
+  DepartmentMember departmentMember = 2;
+}
+
+
+message  UserInDepartment {
+  OrganizationUser organizationUser = 1;
+  repeated DepartmentMember departmentMemberList = 2;
+}
+
+
+
+
+
+///////////////////////////////////organization end//////////////////////////////////
+
+
+
+
+
+
+///////////////////////////////////base end/////////////////////////////////////
 
 message PullMessageBySeqListResp {
   int32 errCode = 1;
@@ -150,8 +213,9 @@ message MsgData {
   int32 status = 17;
   map<string, bool> options = 18;
   OfflinePushInfo offlinePushInfo = 19;
-}
+  repeated string atUserIDList = 20;
 
+}
 message OfflinePushInfo{
   string title = 1;
   string desc = 2;
@@ -255,14 +319,51 @@ message MemberEnterTips{
   int64 operationTime = 3;
 }
 
+message GroupDismissedTips{
+  GroupInfo group = 1;
+  GroupMemberFullInfo opUser = 2;
+  int64 operationTime = 3;
+}
+
+message GroupMemberMutedTips{
+  GroupInfo group = 1;
+  GroupMemberFullInfo opUser = 2;
+  int64 operationTime = 3;
+  GroupMemberFullInfo mutedUser = 4;
+  uint32 mutedSeconds = 5;
+}
+
+message GroupMemberCancelMutedTips{
+  GroupInfo group = 1;
+  GroupMemberFullInfo opUser = 2;
+  int64 operationTime = 3;
+  GroupMemberFullInfo mutedUser = 4;
+}
+
+message GroupMutedTips{
+  GroupInfo group = 1;
+  GroupMemberFullInfo opUser = 2;
+  int64 operationTime = 3;
+}
+
+message GroupCancelMutedTips{
+  GroupInfo group = 1;
+  GroupMemberFullInfo opUser = 2;
+  int64 operationTime = 3;
+}
+
+message GroupMemberInfoSetTips{
+  GroupInfo group = 1;
+  GroupMemberFullInfo opUser = 2;
+  int64 operationTime = 3;
+  GroupMemberFullInfo changedUser = 4;
+}
 
 
-
-
-
-
-
-
+message OrganizationChangedTips{
+  UserInfo opUser = 2;
+  int64 operationTime = 3;
+}
 
 
 //////////////////////friend/////////////////////
@@ -336,7 +437,12 @@ message UserInfoUpdatedTips{
 //////////////////////conversation/////////////////////
 message ConversationUpdateTips{
  string UserID = 1;
+}
 
+message ConversationSetPrivateTips{
+ string recvID = 1;
+ string sendID = 2;
+ bool isPrivate = 3;
 }
 
 
@@ -380,11 +486,25 @@ message InvitationInfo  {
     repeated string inviteeUserIDList = 2;
     string customData = 3;
     string  groupID = 4;
+    string roomID = 5;
+    int32 timeout = 6;
+    string mediaType = 7;
+     int32 platformID = 8;
+    int32   sessionType = 9;
 }
 
+message ParticipantMetaData{
+    GroupInfo groupInfo = 1;
+    GroupMemberFullInfo groupMemberInfo = 2;
+    PublicUserInfo userInfo = 3;
+}
 
 message SignalInviteReq {
-    InvitationInfo invitation = 1;
+    string opUserID = 1;
+    InvitationInfo invitation = 2;
+    OfflinePushInfo offlinePushInfo  = 3;
+    ParticipantMetaData participant = 4;
+
 }
 
 message SignalInviteReply {
@@ -394,7 +514,10 @@ message SignalInviteReply {
 }
 
 message SignalInviteInGroupReq {
-  InvitationInfo invitation = 1;
+  string opUserID = 1;
+  InvitationInfo invitation = 2;
+  OfflinePushInfo offlinePushInfo  = 3;
+  ParticipantMetaData participant = 4;
 }
 
 message SignalInviteInGroupReply {
@@ -404,8 +527,10 @@ message SignalInviteInGroupReply {
 }
 
 message SignalCancelReq {
-  string inviterUserID = 1;
-  SignalInviteReq invitation = 2;
+  string opUserID = 1;
+  InvitationInfo invitation = 2;
+  OfflinePushInfo offlinePushInfo  = 3;
+  ParticipantMetaData participant = 4;
 }
 
 message SignalCancelReply {
@@ -413,8 +538,11 @@ message SignalCancelReply {
 }
 
 message SignalAcceptReq {
-  string inviteeUserID = 1;
-  SignalInviteReq invitation = 2;
+  string opUserID = 1;
+  InvitationInfo invitation = 2;
+  OfflinePushInfo offlinePushInfo  = 3;
+  ParticipantMetaData participant = 4;
+  int32 opUserPlatformID = 5;
 }
 
 message SignalAcceptReply {
@@ -424,8 +552,9 @@ message SignalAcceptReply {
 }
 
 message SignalHungUpReq {
-  string UserID = 1;
-  SignalInviteReq invitation = 2;
+  string opUserID = 1;
+  InvitationInfo invitation = 2;
+  OfflinePushInfo offlinePushInfo  = 3;
 }
 
 message SignalHungUpReply {
@@ -434,8 +563,11 @@ message SignalHungUpReply {
 
 
 message SignalRejectReq {
-  string inviteeUserID = 1;
-  SignalInviteReq invitation = 2;
+  string opUserID = 1;
+  InvitationInfo invitation = 2;
+  OfflinePushInfo offlinePushInfo  = 3;
+  ParticipantMetaData participant = 4;
+  int32 opUserPlatformID = 5;
 }
 
 message SignalRejectReply {
@@ -443,6 +575,16 @@ message SignalRejectReply {
 }
 
 
+message DelMsgListReq{
+    string opUserID = 1;
+    string userID = 2;
+    repeated uint32 seqList = 3;
+    string operationID = 4;
+}
 
+message DelMsgListResp{
+  int32 errCode = 1;
+  string errMsg = 2;
+}
 
 

@@ -1,0 +1,142 @@
+syntax = "proto3";
+import "Open_IM/pkg/proto/sdk_ws/ws.proto";
+option go_package = "./cache;cache";
+package cache;
+
+message CommonResp{
+  int32  errCode = 1;
+  string errMsg = 2;
+}
+
+message GetUserInfoFromCacheReq{
+  repeated string userIDList = 1;
+  string operationID = 2;
+}
+
+message GetUserInfoFromCacheResp{
+  CommonResp  commonResp = 1;
+  repeated server_api_params.UserInfo userInfoList = 2;
+}
+
+
+message UpdateUserInfoToCacheReq{
+  repeated server_api_params.UserInfo userInfoList = 1;
+  string operationID = 2;
+}
+
+message UpdateUserInfoToCacheResp{
+  CommonResp commonResp = 1;
+}
+
+message GetFriendIDListFromCacheReq {
+  string userID = 1;
+  string operationID = 2;
+}
+
+message GetFriendIDListFromCacheResp {
+  repeated string userIDList = 1;
+  CommonResp commonResp = 2;
+}
+
+message AddFriendToCacheReq {
+   string userID = 1;
+   string friendID = 2;
+   string operationID = 3;
+}
+
+message AddFriendToCacheResp {
+  CommonResp commonResp = 1;
+}
+
+message ReduceFriendFromCacheReq {
+   string userID = 1;
+   string friendID = 2;
+   string operationID = 3;
+}
+
+message ReduceFriendFromCacheResp {
+  CommonResp commonResp = 1;
+}
+
+message GetBlackIDListFromCacheReq {
+  string userID = 1;
+  string operationID = 2;
+}
+
+message GetBlackIDListFromCacheResp {
+  repeated string userIDList = 1;
+  CommonResp commonResp = 2;
+}
+
+message AddBlackUserToCacheReq {
+  string userID = 1;
+  string blackUserID = 2;
+  string operationID = 3;
+}
+
+message AddBlackUserToCacheResp {
+  CommonResp commonResp = 1;
+}
+
+message ReduceBlackUserFromCacheReq {
+  string userID = 1;
+  string blackUserID = 2;
+  string operationID = 3;
+}
+
+message ReduceBlackUserFromCacheResp {
+  CommonResp commonResp = 1;
+}
+
+message GetGroupMemberIDListFromCacheReq {
+  string operationID = 1;
+  string groupID = 2;
+}
+
+message GetGroupMemberIDListFromCacheResp {
+  CommonResp commonResp = 1;
+  repeated string userIDList = 2;
+}
+
+message AddGroupMemberToCacheReq {
+  repeated string userIDList = 1;
+  string groupID = 2;
+  string operationID = 3;
+}
+
+message AddGroupMemberToCacheResp {
+  CommonResp commonResp = 1;
+}
+
+message ReduceGroupMemberFromCacheReq {
+  repeated string userIDList = 1;
+  string groupID = 2;
+  string operationID = 3;
+}
+
+message ReduceGroupMemberFromCacheResp {
+  CommonResp commonResp = 1;
+}
+
+service cache{
+  // userInfo
+  rpc GetUserInfoFromCache(GetUserInfoFromCacheReq) returns(GetUserInfoFromCacheResp);
+  rpc UpdateUserInfoToCache(UpdateUserInfoToCacheReq) returns(UpdateUserInfoToCacheResp);
+
+  // friendInfo
+  rpc GetFriendIDListFromCache(GetFriendIDListFromCacheReq) returns(GetFriendIDListFromCacheResp);
+  rpc AddFriendToCache(AddFriendToCacheReq) returns(AddFriendToCacheResp);
+  rpc ReduceFriendFromCache(ReduceFriendFromCacheReq) returns(ReduceFriendFromCacheResp);
+
+  // blackList
+  rpc GetBlackIDListFromCache(GetBlackIDListFromCacheReq) returns(GetBlackIDListFromCacheResp);
+  rpc AddBlackUserToCache(AddBlackUserToCacheReq) returns(AddBlackUserToCacheResp);
+  rpc ReduceBlackUserFromCache(ReduceBlackUserFromCacheReq) returns(ReduceBlackUserFromCacheResp);
+
+  // group
+  rpc GetGroupMemberIDListFromCache(GetGroupMemberIDListFromCacheReq) returns(GetGroupMemberIDListFromCacheResp);
+  rpc AddGroupMemberToCache(AddGroupMemberToCacheReq) returns(AddGroupMemberToCacheResp);
+  rpc ReduceGroupMemberFromCache(ReduceGroupMemberFromCacheReq) returns(ReduceGroupMemberFromCacheResp);
+}
+
+

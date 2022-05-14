@@ -1,10 +1,13 @@
 package getcdv3
 
 import (
+	"Open_IM/pkg/common/log"
 	"context"
 	"fmt"
-	"go.etcd.io/etcd/clientv3"
-	"go.etcd.io/etcd/mvcc/mvccpb"
+	"go.etcd.io/etcd/api/v3/mvccpb"
+	clientv3 "go.etcd.io/etcd/client/v3"
+
+	//"go.etcd.io/etcd/mvcc/mvccpb"
 	//"google.golang.org/genproto/googleapis/ads/googleads/v1/services"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/balancer/roundrobin"
@@ -43,13 +46,19 @@ func NewResolver(schema, etcdAddr, serviceName string) (*Resolver, error) {
 	r.schema = schema
 	r.etcdAddr = etcdAddr
 	resolver.Register(&r)
-
-	conn, err := grpc.Dial(
-		GetPrefix(schema, serviceName),
+	//
+	ctx, _ := context.WithTimeout(context.Background(), time.Second*5)
+	conn, err := grpc.DialContext(ctx, GetPrefix(schema, serviceName),
 		grpc.WithDefaultServiceConfig(fmt.Sprintf(`{"LoadBalancingPolicy": "%s"}`, roundrobin.Name)),
-		grpc.WithInsecure(),
-		grpc.WithTimeout(time.Duration(5)*time.Second),
-	)
+		grpc.WithInsecure())
+	log.Debug("", "etcd key ", GetPrefix(schema, serviceName))
+
+	//conn, err := grpc.Dial(
+	//	GetPrefix(schema, serviceName),
+	//	grpc.WithDefaultServiceConfig(fmt.Sprintf(`{"LoadBalancingPolicy": "%s"}`, roundrobin.Name)),
+	//	grpc.WithInsecure(),
+	//	grpc.WithTimeout(time.Duration(5)*time.Second),
+	//)
 	if err == nil {
 		r.grpcClientConn = conn
 	}
@@ -67,6 +76,7 @@ func GetConn(schema, etcdaddr, serviceName string) *grpc.ClientConn {
 	r, ok := nameResolver[schema+serviceName]
 	rwNameResolverMutex.RUnlock()
 	if ok {
+		log.Debug("", "etcd key ", schema+serviceName, "value ", *r.grpcClientConn, *r)
 		return r.grpcClientConn
 	}
 
@@ -74,15 +84,18 @@ func GetConn(schema, etcdaddr, serviceName string) *grpc.ClientConn {
 	r, ok = nameResolver[schema+serviceName]
 	if ok {
 		rwNameResolverMutex.Unlock()
+		log.Debug("", "etcd key ", schema+serviceName, "value ", *r.grpcClientConn, *r)
 		return r.grpcClientConn
 	}
 
 	r, err := NewResolver(schema, etcdaddr, serviceName)
 	if err != nil {
+		log.Error("", "etcd failed ", schema, etcdaddr, serviceName)
 		rwNameResolverMutex.Unlock()
 		return nil
 	}
 
+	log.Debug("", "etcd key ", schema+serviceName, "value ", *r.grpcClientConn, *r)
 	nameResolver[schema+serviceName] = r
 	rwNameResolverMutex.Unlock()
 	return r.grpcClientConn
@@ -93,7 +106,7 @@ func (r *Resolver) Build(target resolver.Target, cc resolver.ClientConn, opts re
 		return nil, fmt.Errorf("etcd clientv3 client failed, etcd:%s", target)
 	}
 	r.cc = cc
-
+	log.Debug("", "Build..")
 	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 	//     "%s:///%s"
 	prefix := GetPrefix(r.schema, r.serviceName)
@@ -102,7 +115,7 @@ func (r *Resolver) Build(target resolver.Target, cc resolver.ClientConn, opts re
 	if err == nil {
 		var addrList []resolver.Address
 		for i := range resp.Kvs {
-			//log.Debug("", "init addr: ", string(resp.Kvs[i].Value))
+			log.Debug("", "etcd init addr: ", string(resp.Kvs[i].Value))
 			addrList = append(addrList, resolver.Address{Addr: string(resp.Kvs[i].Value)})
 		}
 		r.cc.UpdateState(resolver.State{Addresses: addrList})
@@ -148,27 +161,27 @@ func (r *Resolver) watch(prefix string, addrList []resolver.Address) {
 				if !exists(addrList, string(ev.Kv.Value)) {
 					flag = 1
 					addrList = append(addrList, resolver.Address{Addr: string(ev.Kv.Value)})
-					//log.Debug("", "after add, new list: ", addrList)
+					log.Debug("", "after add, new list: ", addrList)
 				}
 			case mvccpb.DELETE:
-				//log.Debug("remove addr key: ", string(ev.Kv.Key), "value:", string(ev.Kv.Value))
+				log.Debug("remove addr key: ", string(ev.Kv.Key), "value:", string(ev.Kv.Value))
 				i := strings.LastIndexAny(string(ev.Kv.Key), "/")
 				if i < 0 {
 					return
 				}
 				t := string(ev.Kv.Key)[i+1:]
-				//log.Debug("remove addr key: ", string(ev.Kv.Key), "value:", string(ev.Kv.Value), "addr:", t)
+				log.Debug("remove addr key: ", string(ev.Kv.Key), "value:", string(ev.Kv.Value), "addr:", t)
 				if s, ok := remove(addrList, t); ok {
 					flag = 1
 					addrList = s
-					//log.Debug("after remove, new list: ", addrList)
+					log.Debug("after remove, new list: ", addrList)
 				}
 			}
 		}
 
 		if flag == 1 {
 			r.cc.UpdateState(resolver.State{Addresses: addrList})
-			//log.Debug("update: ", addrList)
+			log.Debug("update: ", addrList)
 		}
 	}
 }
@@ -176,7 +189,7 @@ func (r *Resolver) watch(prefix string, addrList []resolver.Address) {
 func GetConn4Unique(schema, etcdaddr, servicename string) []*grpc.ClientConn {
 	gEtcdCli, err := clientv3.New(clientv3.Config{Endpoints: strings.Split(etcdaddr, ",")})
 	if err != nil {
-		//log.Error("clientv3.New failed", err.Error())
+		log.Error("clientv3.New failed", err.Error())
 		return nil
 	}
 

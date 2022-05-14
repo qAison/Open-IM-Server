@@ -30,6 +30,7 @@ func InsertIntoGroupMember(toInsertInfo db.GroupMember) error {
 	if toInsertInfo.RoleLevel == 0 {
 		toInsertInfo.RoleLevel = constant.GroupOrdinaryUsers
 	}
+	toInsertInfo.MuteEndTime = time.Unix(int64(time.Now().Second()), 0)
 	err = dbConn.Table("group_members").Create(toInsertInfo).Error
 	if err != nil {
 		return err
@@ -65,6 +66,20 @@ func GetGroupMemberListByGroupID(groupID string) ([]db.GroupMember, error) {
 	return groupMemberList, nil
 }
 
+func GetGroupMemberIDListByGroupID(groupID string) ([]string, error) {
+	dbConn, err := db.DB.MysqlDB.DefaultGormDB()
+	if err != nil {
+		return nil, err
+	}
+	dbConn.LogMode(false)
+	var groupMemberIDList []string
+	err = dbConn.Table("group_members").Where("group_id=?", groupID).Pluck("user_id", &groupMemberIDList).Error
+	if err != nil {
+		return nil, err
+	}
+	return groupMemberIDList, nil
+}
+
 func GetGroupMemberListByGroupIDAndRoleLevel(groupID string, roleLevel int32) ([]db.GroupMember, error) {
 	dbConn, err := db.DB.MysqlDB.DefaultGormDB()
 	if err != nil {
@@ -97,6 +112,18 @@ func DeleteGroupMemberByGroupIDAndUserID(groupID, userID string) error {
 		return err
 	}
 	err = dbConn.Table("group_members").Where("group_id=? and user_id=? ", groupID, userID).Delete(db.GroupMember{}).Error
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func DeleteGroupMemberByGroupID(groupID string) error {
+	dbConn, err := db.DB.MysqlDB.DefaultGormDB()
+	if err != nil {
+		return err
+	}
+	err = dbConn.Table("group_members").Where("group_id=?  ", groupID).Delete(db.GroupMember{}).Error
 	if err != nil {
 		return err
 	}
@@ -248,11 +275,19 @@ func GetGroupMembersCount(groupId, userName string) (int32, error) {
 	if err != nil {
 		return count, err
 	}
-	dbConn.LogMode(true)
+	dbConn.LogMode(false)
 	if err := dbConn.Table("group_members").Where("group_id=?", groupId).Where(fmt.Sprintf(" nickname like '%%%s%%' ", userName)).Count(&count).Error; err != nil {
 		return count, err
 	}
 	return count, nil
+}
+
+func UpdateGroupMemberInfoDefaultZero(groupMemberInfo db.GroupMember, args map[string]interface{}) error {
+	dbConn, err := db.DB.MysqlDB.DefaultGormDB()
+	if err != nil {
+		return err
+	}
+	return dbConn.Model(groupMemberInfo).Updates(args).Error
 }
 
 //

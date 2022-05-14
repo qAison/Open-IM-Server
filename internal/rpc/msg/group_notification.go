@@ -22,7 +22,7 @@ import (
 //} creator->group
 
 func setOpUserInfo(opUserID, groupID string, groupMemberInfo *open_im_sdk.GroupMemberFullInfo) error {
-	if token_verify.IsMangerUserID(opUserID) {
+	if token_verify.IsManagerUserID(opUserID) {
 		u, err := imdb.GetUserByUserID(opUserID)
 		if err != nil {
 			return utils.Wrap(err, "GetUserByUserID failed")
@@ -157,7 +157,20 @@ func groupNotification(contentType int32, m proto.Message, sendID, groupID, recv
 	case constant.MemberInvitedNotification: //
 		tips.DefaultTips = toNickname + " " + cn.MemberInvited.DefaultTips.Tips
 	case constant.MemberEnterNotification:
-		tips.DefaultTips = toNickname + " " + cn.MemberInvited.DefaultTips.Tips
+		tips.DefaultTips = toNickname + " " + cn.MemberEnter.DefaultTips.Tips
+	case constant.GroupDismissedNotification:
+		tips.DefaultTips = toNickname + "" + cn.GroupDismissed.DefaultTips.Tips
+	case constant.GroupMutedNotification:
+		tips.DefaultTips = toNickname + "" + cn.GroupMuted.DefaultTips.Tips
+	case constant.GroupCancelMutedNotification:
+		tips.DefaultTips = toNickname + "" + cn.GroupCancelMuted.DefaultTips.Tips
+	case constant.GroupMemberMutedNotification:
+		tips.DefaultTips = toNickname + "" + cn.GroupMemberMuted.DefaultTips.Tips
+	case constant.GroupMemberCancelMutedNotification:
+		tips.DefaultTips = toNickname + "" + cn.GroupMemberCancelMuted.DefaultTips.Tips
+	case constant.GroupMemberInfoSetNotification:
+		tips.DefaultTips = toNickname + "" + cn.GroupMemberInfoSet.DefaultTips.Tips
+
 	default:
 		log.Error(operationID, "contentType failed ", contentType)
 		return
@@ -223,6 +236,89 @@ func GroupInfoSetNotification(operationID, opUserID, groupID string) {
 		return
 	}
 	groupNotification(constant.GroupInfoSetNotification, &GroupInfoChangedTips, opUserID, groupID, "", operationID)
+}
+
+func GroupMutedNotification(operationID, opUserID, groupID string) {
+	tips := open_im_sdk.GroupMutedTips{Group: &open_im_sdk.GroupInfo{},
+		OpUser: &open_im_sdk.GroupMemberFullInfo{}}
+	if err := setGroupInfo(groupID, tips.Group); err != nil {
+		log.Error(operationID, "setGroupInfo failed ", err.Error(), groupID)
+		return
+	}
+	if err := setOpUserInfo(opUserID, groupID, tips.OpUser); err != nil {
+		log.Error(operationID, "setOpUserInfo failed ", err.Error(), opUserID, groupID)
+		return
+	}
+	groupNotification(constant.GroupMutedNotification, &tips, opUserID, groupID, "", operationID)
+}
+
+func GroupCancelMutedNotification(operationID, opUserID, groupID string) {
+	tips := open_im_sdk.GroupCancelMutedTips{Group: &open_im_sdk.GroupInfo{},
+		OpUser: &open_im_sdk.GroupMemberFullInfo{}}
+	if err := setGroupInfo(groupID, tips.Group); err != nil {
+		log.Error(operationID, "setGroupInfo failed ", err.Error(), groupID)
+		return
+	}
+	if err := setOpUserInfo(opUserID, groupID, tips.OpUser); err != nil {
+		log.Error(operationID, "setOpUserInfo failed ", err.Error(), opUserID, groupID)
+		return
+	}
+	groupNotification(constant.GroupCancelMutedNotification, &tips, opUserID, groupID, "", operationID)
+}
+
+func GroupMemberMutedNotification(operationID, opUserID, groupID, groupMemberUserID string, mutedSeconds uint32) {
+	tips := open_im_sdk.GroupMemberMutedTips{Group: &open_im_sdk.GroupInfo{},
+		OpUser: &open_im_sdk.GroupMemberFullInfo{}, MutedUser: &open_im_sdk.GroupMemberFullInfo{}}
+	tips.MutedSeconds = mutedSeconds
+	if err := setGroupInfo(groupID, tips.Group); err != nil {
+		log.Error(operationID, "setGroupInfo failed ", err.Error(), groupID)
+		return
+	}
+	if err := setOpUserInfo(opUserID, groupID, tips.OpUser); err != nil {
+		log.Error(operationID, "setOpUserInfo failed ", err.Error(), opUserID, groupID)
+		return
+	}
+	if err := setGroupMemberInfo(groupID, groupMemberUserID, tips.MutedUser); err != nil {
+		log.Error(operationID, "setGroupMemberInfo failed ", err.Error(), groupID, groupMemberUserID)
+		return
+	}
+	groupNotification(constant.GroupMemberMutedNotification, &tips, opUserID, groupID, "", operationID)
+}
+
+func GroupMemberInfoSetNotification(operationID, opUserID, groupID, groupMemberUserID string) {
+	tips := open_im_sdk.GroupMemberInfoSetTips{Group: &open_im_sdk.GroupInfo{},
+		OpUser: &open_im_sdk.GroupMemberFullInfo{}, ChangedUser: &open_im_sdk.GroupMemberFullInfo{}}
+	if err := setGroupInfo(groupID, tips.Group); err != nil {
+		log.Error(operationID, "setGroupInfo failed ", err.Error(), groupID)
+		return
+	}
+	if err := setOpUserInfo(opUserID, groupID, tips.OpUser); err != nil {
+		log.Error(operationID, "setOpUserInfo failed ", err.Error(), opUserID, groupID)
+		return
+	}
+	if err := setGroupMemberInfo(groupID, groupMemberUserID, tips.ChangedUser); err != nil {
+		log.Error(operationID, "setGroupMemberInfo failed ", err.Error(), groupID, groupMemberUserID)
+		return
+	}
+	groupNotification(constant.GroupMemberInfoSetNotification, &tips, opUserID, groupID, "", operationID)
+}
+
+func GroupMemberCancelMutedNotification(operationID, opUserID, groupID, groupMemberUserID string) {
+	tips := open_im_sdk.GroupMemberCancelMutedTips{Group: &open_im_sdk.GroupInfo{},
+		OpUser: &open_im_sdk.GroupMemberFullInfo{}, MutedUser: &open_im_sdk.GroupMemberFullInfo{}}
+	if err := setGroupInfo(groupID, tips.Group); err != nil {
+		log.Error(operationID, "setGroupInfo failed ", err.Error(), groupID)
+		return
+	}
+	if err := setOpUserInfo(opUserID, groupID, tips.OpUser); err != nil {
+		log.Error(operationID, "setOpUserInfo failed ", err.Error(), opUserID, groupID)
+		return
+	}
+	if err := setGroupMemberInfo(groupID, groupMemberUserID, tips.MutedUser); err != nil {
+		log.Error(operationID, "setGroupMemberInfo failed ", err.Error(), groupID, groupMemberUserID)
+		return
+	}
+	groupNotification(constant.GroupMemberCancelMutedNotification, &tips, opUserID, groupID, "", operationID)
 }
 
 //message ReceiveJoinApplicationTips{
@@ -322,6 +418,19 @@ func GroupOwnerTransferredNotification(req *pbGroup.TransferGroupOwnerReq) {
 		return
 	}
 	groupNotification(constant.GroupOwnerTransferredNotification, &GroupOwnerTransferredTips, req.OpUserID, req.GroupID, "", req.OperationID)
+}
+
+func GroupDismissedNotification(req *pbGroup.DismissGroupReq) {
+	tips := open_im_sdk.GroupDismissedTips{Group: &open_im_sdk.GroupInfo{}, OpUser: &open_im_sdk.GroupMemberFullInfo{}}
+	if err := setGroupInfo(req.GroupID, tips.Group); err != nil {
+		log.NewError(req.OperationID, "setGroupInfo failed ", err.Error(), req.GroupID)
+		return
+	}
+	if err := setOpUserInfo(req.OpUserID, req.GroupID, tips.OpUser); err != nil {
+		log.Error(req.OperationID, "setOpUserInfo failed", req.OpUserID, req.GroupID)
+		return
+	}
+	groupNotification(constant.GroupDismissedNotification, &tips, req.OpUserID, req.GroupID, "", req.OperationID)
 }
 
 //message MemberKickedTips{

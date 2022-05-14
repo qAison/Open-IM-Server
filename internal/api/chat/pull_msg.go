@@ -7,6 +7,7 @@ import (
 	"Open_IM/pkg/grpc-etcdv3/getcdv3"
 	"Open_IM/pkg/proto/chat"
 	open_im_sdk "Open_IM/pkg/proto/sdk_ws"
+	"Open_IM/pkg/utils"
 	"context"
 	"github.com/gin-gonic/gin"
 	"net/http"
@@ -39,7 +40,10 @@ func PullMsgBySeqList(c *gin.Context) {
 
 	token := c.Request.Header.Get("token")
 	if ok, err := token_verify.VerifyToken(token, params.SendID); !ok {
-		c.JSON(http.StatusBadRequest, gin.H{"errCode": 400, "errMsg": "token validate err" + err.Error()})
+		if err != nil {
+			log.NewError(params.OperationID, utils.GetSelfFuncName(), err.Error(), token, params.SendID)
+		}
+		c.JSON(http.StatusBadRequest, gin.H{"errCode": 400, "errMsg": "token validate err"})
 		return
 	}
 	pbData := open_im_sdk.PullMessageBySeqListReq{}
@@ -51,10 +55,10 @@ func PullMsgBySeqList(c *gin.Context) {
 	msgClient := pbChat.NewChatClient(grpcConn)
 	reply, err := msgClient.PullMessageBySeqList(context.Background(), &pbData)
 	if err != nil {
-		log.ErrorByKv("PullMessageBySeqList error", pbData.OperationID, "err", err.Error())
+		log.Error(pbData.OperationID, "PullMessageBySeqList error", err.Error())
 		return
 	}
-	log.InfoByKv("rpc call success to PullMessageBySeqList", pbData.OperationID, "ReplyArgs", reply.String(), len(reply.List))
+	log.NewInfo(pbData.OperationID, "rpc call success to PullMessageBySeqList", reply.String(), len(reply.List))
 	c.JSON(http.StatusOK, gin.H{
 		"errCode":       reply.ErrCode,
 		"errMsg":        reply.ErrMsg,

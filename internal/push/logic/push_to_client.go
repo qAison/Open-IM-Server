@@ -7,7 +7,9 @@
 package logic
 
 import (
-	push "Open_IM/internal/push/jpush"
+	pusher "Open_IM/internal/push"
+	"Open_IM/internal/push/getui"
+	jpush "Open_IM/internal/push/jpush"
 	"Open_IM/pkg/common/config"
 	"Open_IM/pkg/common/constant"
 	"Open_IM/pkg/common/log"
@@ -35,7 +37,7 @@ type AtContent struct {
 func MsgToUser(pushMsg *pbPush.PushMsgReq) {
 	var wsResult []*pbRelay.SingleMsgToUser
 	isOfflinePush := utils.GetSwitchFromOptions(pushMsg.MsgData.Options, constant.IsOfflinePush)
-	log.Debug("Get msg from msg_transfer And push msg", pushMsg.OperationID, "PushData", pushMsg.String())
+	log.Debug(pushMsg.OperationID, "Get msg from msg_transfer And push msg", pushMsg.String())
 	grpcCons := getcdv3.GetConn4Unique(config.Config.Etcd.EtcdSchema, strings.Join(config.Config.Etcd.EtcdAddr, ","), config.Config.RpcRegisterName.OpenImOnlineMessageRelayName)
 	//Online push message
 	log.Debug("test", pushMsg.OperationID, "len  grpc", len(grpcCons), "data", pushMsg.String())
@@ -43,72 +45,80 @@ func MsgToUser(pushMsg *pbPush.PushMsgReq) {
 		msgClient := pbRelay.NewOnlineMessageRelayServiceClient(v)
 		reply, err := msgClient.OnlinePushMsg(context.Background(), &pbRelay.OnlinePushMsgReq{OperationID: pushMsg.OperationID, MsgData: pushMsg.MsgData, PushToUserID: pushMsg.PushToUserID})
 		if err != nil {
-			log.InfoByKv("push data to client rpc err", pushMsg.OperationID, "err", err)
+			log.NewError("push data to client rpc err", pushMsg.OperationID, "err", err)
 			continue
 		}
 		if reply != nil && reply.Resp != nil {
 			wsResult = append(wsResult, reply.Resp...)
 		}
 	}
-	log.InfoByKv("push_result", pushMsg.OperationID, "result", wsResult, "sendData", pushMsg.MsgData)
-	count++
+	log.NewInfo(pushMsg.OperationID, "push_result", wsResult, "sendData", pushMsg.MsgData)
+	successCount++
 	if isOfflinePush && pushMsg.PushToUserID != pushMsg.MsgData.SendID {
 		for _, v := range wsResult {
 			if v.ResultCode == 0 {
 				continue
 			}
-			//supported terminal
-			for _, t := range pushTerminal {
-				if v.RecvPlatFormID == t {
-					//Use offline push messaging
-					var UIDList []string
-					UIDList = append(UIDList, v.RecvID)
-					customContent := OpenIMContent{
-						SessionType: int(pushMsg.MsgData.SessionType),
-						From:        pushMsg.MsgData.SendID,
-						To:          pushMsg.MsgData.RecvID,
-						Seq:         pushMsg.MsgData.Seq,
-					}
-					bCustomContent, _ := json.Marshal(customContent)
-					jsonCustomContent := string(bCustomContent)
-					var content string
-					if pushMsg.MsgData.OfflinePushInfo != nil {
-						content = pushMsg.MsgData.OfflinePushInfo.Title
-
-					} else {
-						switch pushMsg.MsgData.ContentType {
-						case constant.Text:
-							content = constant.ContentType2PushContent[constant.Text]
-						case constant.Picture:
-							content = constant.ContentType2PushContent[constant.Picture]
-						case constant.Voice:
-							content = constant.ContentType2PushContent[constant.Voice]
-						case constant.Video:
-							content = constant.ContentType2PushContent[constant.Video]
-						case constant.File:
-							content = constant.ContentType2PushContent[constant.File]
-						case constant.AtText:
-							a := AtContent{}
-							_ = utils.JsonStringToStruct(string(pushMsg.MsgData.Content), &a)
-							if utils.IsContain(v.RecvID, a.AtUserList) {
-								content = constant.ContentType2PushContent[constant.AtText] + constant.ContentType2PushContent[constant.Common]
-							} else {
-								content = constant.ContentType2PushContent[constant.GroupMsg]
-							}
-						default:
-							content = constant.ContentType2PushContent[constant.Common]
-						}
-					}
-
-					pushResult, err := push.JGAccountListPush(UIDList, content, jsonCustomContent, constant.PlatformIDToName(t))
-					if err != nil {
-						log.NewError(pushMsg.OperationID, "offline push error", pushMsg.String(), err.Error(), constant.PlatformIDToName(t))
-					} else {
-						log.NewDebug(pushMsg.OperationID, "offline push return result is ", string(pushResult), pushMsg.MsgData, constant.PlatformIDToName(t))
-					}
-
+			if utils.IsContainInt32(v.RecvPlatFormID, pushTerminal) {
+				//Use offline push messaging
+				var UIDList []string
+				UIDList = append(UIDList, v.RecvID)
+				customContent := OpenIMContent{
+					SessionType: int(pushMsg.MsgData.SessionType),
+					From:        pushMsg.MsgData.SendID,
+					To:          pushMsg.MsgData.RecvID,
+					Seq:         pushMsg.MsgData.Seq,
 				}
+				bCustomContent, _ := json.Marshal(customContent)
+				jsonCustomContent := string(bCustomContent)
+				var content string
+				if pushMsg.MsgData.OfflinePushInfo != nil {
+					content = pushMsg.MsgData.OfflinePushInfo.Title
+
+				} else {
+					switch pushMsg.MsgData.ContentType {
+					case constant.Text:
+						content = constant.ContentType2PushContent[constant.Text]
+					case constant.Picture:
+						content = constant.ContentType2PushContent[constant.Picture]
+					case constant.Voice:
+						content = constant.ContentType2PushContent[constant.Voice]
+					case constant.Video:
+						content = constant.ContentType2PushContent[constant.Video]
+					case constant.File:
+						content = constant.ContentType2PushContent[constant.File]
+					case constant.AtText:
+						a := AtContent{}
+						_ = utils.JsonStringToStruct(string(pushMsg.MsgData.Content), &a)
+						if utils.IsContain(v.RecvID, a.AtUserList) {
+							content = constant.ContentType2PushContent[constant.AtText] + constant.ContentType2PushContent[constant.Common]
+						} else {
+							content = constant.ContentType2PushContent[constant.GroupMsg]
+						}
+					default:
+						content = constant.ContentType2PushContent[constant.Common]
+					}
+				}
+				var offlinePusher pusher.OfflinePusher
+				if config.Config.Push.Getui.Enable {
+					log.NewInfo(pushMsg.OperationID, utils.GetSelfFuncName(), config.Config.Push.Getui)
+					offlinePusher = getui.GetuiClient
+				}
+				if config.Config.Push.Jpns.Enable {
+					offlinePusher = jpush.JPushClient
+				}
+				if offlinePusher == nil {
+					offlinePusher = jpush.JPushClient
+				}
+				pushResult, err := offlinePusher.Push(UIDList, content, jsonCustomContent, pushMsg.OperationID)
+				if err != nil {
+					log.NewError(pushMsg.OperationID, "offline push error", pushMsg.String(), err.Error())
+				} else {
+					log.NewDebug(pushMsg.OperationID, "offline push return result is ", pushResult, pushMsg.MsgData)
+				}
+				break
 			}
+
 		}
 
 	}

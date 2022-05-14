@@ -9,6 +9,7 @@ package gate
 import (
 	"Open_IM/pkg/common/constant"
 	"Open_IM/pkg/common/log"
+	pbRtc "Open_IM/pkg/proto/rtc"
 	open_im_sdk "Open_IM/pkg/proto/sdk_ws"
 	"github.com/golang/protobuf/proto"
 )
@@ -58,26 +59,38 @@ type SeqListData struct {
 
 func (ws *WServer) argsValidate(m *Req, r int32) (isPass bool, errCode int32, errMsg string, returnData interface{}) {
 	switch r {
-	case constant.WSSendMsg | constant.WSSendSignalMsg:
+	case constant.WSSendMsg:
 		data := open_im_sdk.MsgData{}
 		if err := proto.Unmarshal(m.Data, &data); err != nil {
-			log.ErrorByKv("Decode Data struct  err", "", "err", err.Error(), "reqIdentifier", r)
+			log.Error("", "Decode Data struct  err", err.Error(), r)
 			return false, 203, err.Error(), nil
 		}
 		if err := validate.Struct(data); err != nil {
-			log.ErrorByKv("data args validate  err", "", "err", err.Error(), "reqIdentifier", r)
+			log.Error("", "data args validate  err", err.Error(), r)
 			return false, 204, err.Error(), nil
 
 		}
 		return true, 0, "", data
-	case constant.WSPullMsgBySeqList:
-		data := open_im_sdk.PullMessageBySeqListReq{}
+	case constant.WSSendSignalMsg:
+		data := pbRtc.SignalReq{}
 		if err := proto.Unmarshal(m.Data, &data); err != nil {
-			log.ErrorByKv("Decode Data struct  err", "", "err", err.Error(), "reqIdentifier", r)
+			log.Error("", "Decode Data struct  err", err.Error(), r)
 			return false, 203, err.Error(), nil
 		}
 		if err := validate.Struct(data); err != nil {
-			log.ErrorByKv("data args validate  err", "", "err", err.Error(), "reqIdentifier", r)
+			log.Error("", "data args validate  err", err.Error(), r)
+			return false, 204, err.Error(), nil
+
+		}
+		return true, 0, "", &data
+	case constant.WSPullMsgBySeqList:
+		data := open_im_sdk.PullMessageBySeqListReq{}
+		if err := proto.Unmarshal(m.Data, &data); err != nil {
+			log.Error("", "Decode Data struct  err", err.Error(), r)
+			return false, 203, err.Error(), nil
+		}
+		if err := validate.Struct(data); err != nil {
+			log.Error("", "data args validate  err", err.Error(), r)
 			return false, 204, err.Error(), nil
 
 		}

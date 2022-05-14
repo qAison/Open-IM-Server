@@ -107,7 +107,7 @@ func GroupMemberOpenIMCopyDB(dst *db.GroupMember, src *open_im_sdk.GroupMemberFu
 
 func GroupMemberDBCopyOpenIM(dst *open_im_sdk.GroupMemberFullInfo, src *db.GroupMember) error {
 	utils.CopyStructFields(dst, src)
-	if token_verify.IsMangerUserID(src.UserID) {
+	if token_verify.IsManagerUserID(src.UserID) {
 		u, err := imdb.GetUserByUserID(src.UserID)
 		if err != nil {
 			return utils.Wrap(err, "")
@@ -118,6 +118,14 @@ func GroupMemberDBCopyOpenIM(dst *open_im_sdk.GroupMemberFullInfo, src *db.Group
 		dst.AppMangerLevel = 1
 	}
 	dst.JoinTime = int32(src.JoinTime.Unix())
+	if src.MuteEndTime.Unix() < 0 {
+		dst.JoinTime = 0
+		return nil
+	}
+	dst.MuteEndTime = uint32(src.MuteEndTime.Unix())
+	if dst.MuteEndTime < uint32(time.Now().Unix()) {
+		dst.MuteEndTime = 0
+	}
 	return nil
 }
 
@@ -146,8 +154,3 @@ func UserDBCopyOpenIM(dst *open_im_sdk.UserInfo, src *db.User) {
 func UserDBCopyOpenIMPublicUser(dst *open_im_sdk.PublicUserInfo, src *db.User) {
 	utils.CopyStructFields(dst, src)
 }
-
-//
-//func PublicUserDBCopyOpenIM(dst *open_im_sdk.PublicUserInfo, src *db.User){
-//
-//}

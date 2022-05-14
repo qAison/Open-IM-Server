@@ -20,6 +20,7 @@ import (
 	"context"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	"github.com/golang/protobuf/proto"
 	"github.com/mitchellh/mapstructure"
 	"net/http"
 	"strings"
@@ -29,6 +30,7 @@ var validate *validator.Validate
 
 func newUserSendMsgReq(params *ManagementSendMsgReq) *pbChat.SendMsgReq {
 	var newContent string
+	var err error
 	switch params.ContentType {
 	case constant.Text:
 		newContent = params.Content["text"].(string)
@@ -38,8 +40,12 @@ func newUserSendMsgReq(params *ManagementSendMsgReq) *pbChat.SendMsgReq {
 		fallthrough
 	case constant.Voice:
 		fallthrough
+	case constant.Video:
+		fallthrough
 	case constant.File:
 		newContent = utils.StructToJsonString(params.Content)
+	case constant.Revoke:
+		newContent = params.Content["revokeMsgClientID"].(string)
 	default:
 	}
 	var options map[string]bool
@@ -70,6 +76,14 @@ func newUserSendMsgReq(params *ManagementSendMsgReq) *pbChat.SendMsgReq {
 			OfflinePushInfo: params.OfflinePushInfo,
 		},
 	}
+	if params.ContentType == constant.OANotification {
+		var tips open_im_sdk.TipsComm
+		tips.JsonDetail = utils.StructToJsonString(params.Content)
+		pbData.MsgData.Content, err = proto.Marshal(&tips)
+		if err != nil {
+			log.Error(params.OperationID, "Marshal failed ", err.Error(), tips.String())
+		}
+	}
 	return &pbData
 }
 func init() {
@@ -81,7 +95,7 @@ func ManagementSendMsg(c *gin.Context) {
 	params := ManagementSendMsgReq{}
 	if err := c.BindJSON(&params); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"errCode": 400, "errMsg": err.Error()})
-		log.ErrorByKv("json unmarshal err", c.PostForm("operationID"), "err", err.Error(), "content", c.PostForm("content"))
+		log.Error(c.PostForm("operationID"), "json unmarshal err", err.Error(), c.PostForm("content"))
 		return
 	}
 	switch params.ContentType {
@@ -103,30 +117,35 @@ func ManagementSendMsg(c *gin.Context) {
 	//case constant.Location:
 	case constant.Custom:
 		data = CustomElem{}
-	//case constant.Revoke:
+	case constant.Revoke:
+		data = RevokeElem{}
+	case constant.OANotification:
+		data = OANotificationElem{}
+		params.SessionType = constant.NotificationChatType
 	//case constant.HasReadReceipt:
 	//case constant.Typing:
 	//case constant.Quote:
 	default:
 		c.JSON(http.StatusBadRequest, gin.H{"errCode": 404, "errMsg": "contentType err"})
-		log.ErrorByKv("contentType err", c.PostForm("operationID"), "content", c.PostForm("content"))
+		log.Error(c.PostForm("operationID"), "contentType err", c.PostForm("content"))
 		return
 	}
 	if err := mapstructure.WeakDecode(params.Content, &data); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"errCode": 401, "errMsg": err.Error()})
-		log.ErrorByKv("content to Data struct  err", "", "err", err.Error())
+		log.Error(c.PostForm("operationID"), "content to Data struct  err", err.Error())
 		return
 	} else if err := validate.Struct(data); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"errCode": 403, "errMsg": err.Error()})
-		log.ErrorByKv("data args validate  err", "", "err", err.Error())
+		log.Error(c.PostForm("operationID"), "data args validate  err", err.Error())
 		return
 	}
-
+	log.NewInfo(params.OperationID, data, params)
 	token := c.Request.Header.Get("token")
-	claims, err := token_verify.ParseToken(token)
+	claims, err := token_verify.ParseToken(token, params.OperationID)
 	if err != nil {
 		log.NewError(params.OperationID, "parse token failed", err.Error())
 		c.JSON(http.StatusBadRequest, gin.H{"errCode": 400, "errMsg": "parse token failed", "sendTime": 0, "MsgID": ""})
+		return
 	}
 	if !utils.IsContain(claims.UID, config.Config.Manager.AppManagerUid) {
 		c.JSON(http.StatusBadRequest, gin.H{"errCode": 400, "errMsg": "not authorized", "sendTime": 0, "MsgID": ""})
@@ -138,23 +157,25 @@ func ManagementSendMsg(c *gin.Context) {
 		if len(params.RecvID) == 0 {
 			log.NewError(params.OperationID, "recvID is a null string")
 			c.JSON(http.StatusBadRequest, gin.H{"errCode": 405, "errMsg": "recvID is a null string", "sendTime": 0, "MsgID": ""})
+			return
 		}
 	case constant.GroupChatType:
 		if len(params.GroupID) == 0 {
 			log.NewError(params.OperationID, "groupID is a null string")
 			c.JSON(http.StatusBadRequest, gin.H{"errCode": 405, "errMsg": "groupID is a null string", "sendTime": 0, "MsgID": ""})
+			return
 		}
 
 	}
-	log.InfoByKv("Ws call success to ManagementSendMsgReq", params.OperationID, "Parameters", params)
+	log.NewInfo(params.OperationID, "Ws call success to ManagementSendMsgReq", params)
 
 	pbData := newUserSendMsgReq(&params)
-	log.Info("", "", "api ManagementSendMsg call start..., [data: %s]", pbData.String())
+	log.Info(params.OperationID, "api ManagementSendMsg call start..., [data: %s]", pbData.String())
 
 	etcdConn := getcdv3.GetConn(config.Config.Etcd.EtcdSchema, strings.Join(config.Config.Etcd.EtcdAddr, ","), config.Config.RpcRegisterName.OpenImOfflineMessageName)
 	client := pbChat.NewChatClient(etcdConn)
 
-	log.Info("", "", "api ManagementSendMsg call, api call rpc...")
+	log.Info(params.OperationID, "api ManagementSendMsg call, api call rpc...")
 
 	RpcResp, err := client.SendMsg(context.Background(), pbData)
 	if err != nil {
@@ -198,16 +219,16 @@ type ManagementSendMsgReq struct {
 
 type PictureBaseInfo struct {
 	UUID   string `mapstructure:"uuid"`
-	Type   string `mapstructure:"type" validate:"required"`
-	Size   int64  `mapstructure:"size" validate:"required"`
-	Width  int32  `mapstructure:"width" validate:"required"`
-	Height int32  `mapstructure:"height" validate:"required"`
-	Url    string `mapstructure:"url" validate:"required"`
+	Type   string `mapstructure:"type" `
+	Size   int64  `mapstructure:"size" `
+	Width  int32  `mapstructure:"width" `
+	Height int32  `mapstructure:"height"`
+	Url    string `mapstructure:"url" `
 }
 
 type PictureElem struct {
 	SourcePath      string          `mapstructure:"sourcePath"`
-	SourcePicture   PictureBaseInfo `mapstructure:"sourcePicture" validate:"required"`
+	SourcePicture   PictureBaseInfo `mapstructure:"sourcePicture"`
 	BigPicture      PictureBaseInfo `mapstructure:"bigPicture" `
 	SnapshotPicture PictureBaseInfo `mapstructure:"snapshotPicture"`
 }
@@ -256,4 +277,21 @@ type CustomElem struct {
 }
 type TextElem struct {
 	Text string `mapstructure:"text" validate:"required"`
+}
+
+type RevokeElem struct {
+	RevokeMsgClientID string `mapstructure:"revokeMsgClientID" validate:"required"`
+}
+type OANotificationElem struct {
+	NotificationName    string      `mapstructure:"notificationName" validate:"required"`
+	NotificationFaceURL string      `mapstructure:"notificationFaceURL" validate:"required"`
+	NotificationType    int32       `mapstructure:"notificationType" validate:"required"`
+	Text                string      `mapstructure:"text" validate:"required"`
+	Url                 string      `mapstructure:"url"`
+	MixType             int32       `mapstructure:"mixType"`
+	PictureElem         PictureElem `mapstructure:"pictureElem"`
+	SoundElem           SoundElem   `mapstructure:"soundElem"`
+	VideoElem           VideoElem   `mapstructure:"videoElem"`
+	FileElem            FileElem    `mapstructure:"fileElem"`
+	Ex                  string      `mapstructure:"ex"`
 }

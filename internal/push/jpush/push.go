@@ -10,17 +10,35 @@ import (
 	"net/http"
 )
 
-type JPushResp struct {
+var (
+	JPushClient *JPush
+)
+
+func init() {
+	JPushClient = newGetuiClient()
 }
 
-func JGAccountListPush(accounts []string, alert, detailContent, platform string) ([]byte, error) {
+type JPush struct{}
 
+func newGetuiClient() *JPush {
+	return &JPush{}
+}
+
+func (j *JPush) Auth(apiKey, secretKey string, timeStamp int64) (token string, err error) {
+	return token, nil
+}
+
+func (j *JPush) SetAlias(cid, alias string) (resp string, err error) {
+	return resp, nil
+}
+
+func (j *JPush) Push(accounts []string, alert, detailContent, operationID string) (string, error) {
 	var pf requestBody.Platform
-	_ = pf.SetPlatform(platform)
+	pf.SetAll()
 	var au requestBody.Audience
 	au.SetAlias(accounts)
 	var no requestBody.Notification
-	no.SetAlert(alert, platform)
+	no.SetAlert(alert)
 	var me requestBody.Message
 	me.SetMsgContent(detailContent)
 	var o requestBody.Options
@@ -34,25 +52,23 @@ func JGAccountListPush(accounts []string, alert, detailContent, platform string)
 
 	con, err := json.Marshal(po)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-
 	client := &http.Client{}
-
 	req, err := http.NewRequest("POST", config.Config.Push.Jpns.PushUrl, bytes.NewBuffer(con))
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	req.Header.Set("Authorization", common.GetAuthorization(config.Config.Push.Jpns.AppKey, config.Config.Push.Jpns.MasterSecret))
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	defer resp.Body.Close()
 	result, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return result, nil
+	return string(result), nil
 }

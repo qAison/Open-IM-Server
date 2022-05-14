@@ -30,13 +30,17 @@ func DeleteUser(c *gin.Context) {
 	}
 	req := &rpc.DeleteUsersReq{}
 	utils.CopyStructFields(req, &params)
+
 	var ok bool
-	ok, req.OpUserID = token_verify.GetUserIDFromToken(c.Request.Header.Get("token"))
+	var errInfo string
+	ok, req.OpUserID, errInfo = token_verify.GetUserIDFromToken(c.Request.Header.Get("token"), req.OperationID)
 	if !ok {
-		log.NewError(req.OperationID, "GetUserIDFromToken false ", c.Request.Header.Get("token"))
-		c.JSON(http.StatusInternalServerError, gin.H{"errCode": 500, "errMsg": "GetUserIDFromToken failed"})
+		errMsg := req.OperationID + " " + "GetUserIDFromToken failed " + errInfo + " token:" + c.Request.Header.Get("token")
+		log.NewError(req.OperationID, errMsg)
+		c.JSON(http.StatusInternalServerError, gin.H{"errCode": 500, "errMsg": errMsg})
 		return
 	}
+
 	log.NewInfo(params.OperationID, "DeleteUser args ", req.String())
 	etcdConn := getcdv3.GetConn(config.Config.Etcd.EtcdSchema, strings.Join(config.Config.Etcd.EtcdAddr, ","), config.Config.RpcRegisterName.OpenImUserName)
 	client := rpc.NewUserClient(etcdConn)
@@ -62,13 +66,17 @@ func GetAllUsersUid(c *gin.Context) {
 	}
 	req := &rpc.GetAllUserIDReq{}
 	utils.CopyStructFields(req, &params)
+
 	var ok bool
-	ok, req.OpUserID = token_verify.GetUserIDFromToken(c.Request.Header.Get("token"))
+	var errInfo string
+	ok, req.OpUserID, errInfo = token_verify.GetUserIDFromToken(c.Request.Header.Get("token"), req.OperationID)
 	if !ok {
-		log.NewError(req.OperationID, "GetUserIDFromToken false ", c.Request.Header.Get("token"))
-		c.JSON(http.StatusInternalServerError, gin.H{"errCode": 500, "errMsg": "GetUserIDFromToken failed"})
+		errMsg := req.OperationID + " " + "GetUserIDFromToken failed " + errInfo + " token:" + c.Request.Header.Get("token")
+		log.NewError(req.OperationID, errMsg)
+		c.JSON(http.StatusInternalServerError, gin.H{"errCode": 500, "errMsg": errMsg})
 		return
 	}
+
 	log.NewInfo(params.OperationID, "GetAllUsersUid args ", req.String())
 	etcdConn := getcdv3.GetConn(config.Config.Etcd.EtcdSchema, strings.Join(config.Config.Etcd.EtcdAddr, ","), config.Config.RpcRegisterName.OpenImUserName)
 	client := rpc.NewUserClient(etcdConn)
@@ -94,13 +102,17 @@ func AccountCheck(c *gin.Context) {
 	}
 	req := &rpc.AccountCheckReq{}
 	utils.CopyStructFields(req, &params)
+
 	var ok bool
-	ok, req.OpUserID = token_verify.GetUserIDFromToken(c.Request.Header.Get("token"))
+	var errInfo string
+	ok, req.OpUserID, errInfo = token_verify.GetUserIDFromToken(c.Request.Header.Get("token"), req.OperationID)
 	if !ok {
-		log.NewError(req.OperationID, "GetUserIDFromToken false ", c.Request.Header.Get("token"))
-		c.JSON(http.StatusInternalServerError, gin.H{"errCode": 500, "errMsg": "GetUserIDFromToken failed"})
+		errMsg := req.OperationID + " " + "GetUserIDFromToken failed " + errInfo + " token:" + c.Request.Header.Get("token")
+		log.NewError(req.OperationID, errMsg)
+		c.JSON(http.StatusInternalServerError, gin.H{"errCode": 500, "errMsg": errMsg})
 		return
 	}
+
 	log.NewInfo(params.OperationID, "AccountCheck args ", req.String())
 	etcdConn := getcdv3.GetConn(config.Config.Etcd.EtcdSchema, strings.Join(config.Config.Etcd.EtcdAddr, ","), config.Config.RpcRegisterName.OpenImUserName)
 	client := rpc.NewUserClient(etcdConn)
@@ -118,6 +130,7 @@ func AccountCheck(c *gin.Context) {
 	log.NewInfo(req.OperationID, "AccountCheck api return", resp)
 	c.JSON(http.StatusOK, resp)
 }
+
 func GetUsersOnlineStatus(c *gin.Context) {
 	params := api.GetUsersOnlineStatusReq{}
 	if err := c.BindJSON(&params); err != nil {
@@ -126,13 +139,17 @@ func GetUsersOnlineStatus(c *gin.Context) {
 	}
 	req := &pbRelay.GetUsersOnlineStatusReq{}
 	utils.CopyStructFields(req, &params)
+
 	var ok bool
-	ok, req.OpUserID = token_verify.GetUserIDFromToken(c.Request.Header.Get("token"))
+	var errInfo string
+	ok, req.OpUserID, errInfo = token_verify.GetUserIDFromToken(c.Request.Header.Get("token"), req.OperationID)
 	if !ok {
-		log.NewError(req.OperationID, "GetUserIDFromToken false ", c.Request.Header.Get("token"))
-		c.JSON(http.StatusInternalServerError, gin.H{"errCode": 500, "errMsg": "GetUserIDFromToken failed"})
+		errMsg := req.OperationID + " " + "GetUserIDFromToken failed " + errInfo + " token:" + c.Request.Header.Get("token")
+		log.NewError(req.OperationID, errMsg)
+		c.JSON(http.StatusInternalServerError, gin.H{"errCode": 500, "errMsg": errMsg})
 		return
 	}
+
 	log.NewInfo(params.OperationID, "GetUsersOnlineStatus args ", req.String())
 	var wsResult []*pbRelay.GetUsersOnlineStatusResp_SuccessResult
 	var respResult []*pbRelay.GetUsersOnlineStatusResp_SuccessResult
@@ -176,5 +193,4 @@ func GetUsersOnlineStatus(c *gin.Context) {
 	}
 	log.NewInfo(req.OperationID, "GetUsersOnlineStatus api return", resp)
 	c.JSON(http.StatusOK, resp)
-
 }

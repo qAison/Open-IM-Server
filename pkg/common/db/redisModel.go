@@ -3,17 +3,24 @@ package db
 import (
 	"Open_IM/pkg/common/constant"
 	log2 "Open_IM/pkg/common/log"
+	pbCommon "Open_IM/pkg/proto/sdk_ws"
+	"encoding/json"
 	"github.com/garyburd/redigo/redis"
 )
 
 const (
-	AccountTempCode               = "ACCOUNT_TEMP_CODE"
+	accountTempCode               = "ACCOUNT_TEMP_CODE"
 	resetPwdTempCode              = "RESET_PWD_TEMP_CODE"
 	userIncrSeq                   = "REDIS_USER_INCR_SEQ:" // user incr seq
 	appleDeviceToken              = "DEVICE_TOKEN"
 	userMinSeq                    = "REDIS_USER_MIN_SEQ:"
 	uidPidToken                   = "UID_PID_TOKEN_STATUS:"
 	conversationReceiveMessageOpt = "CON_RECV_MSG_OPT:"
+	getuiToken                    = "GETUI"
+	userInfoCache                 = "USER_INFO_CACHE:"
+	friendRelationCache           = "FRIEND_RELATION_CACHE:"
+	blackListCache                = "BLACK_LIST_CACHE:"
+	groupCache                    = "GROUP_CACHE:"
 )
 
 func (d *DataBases) Exec(cmd string, key interface{}, args ...interface{}) (interface{}, error) {
@@ -36,16 +43,16 @@ func (d *DataBases) Exec(cmd string, key interface{}, args ...interface{}) (inte
 	return con.Do(cmd, params...)
 }
 func (d *DataBases) JudgeAccountEXISTS(account string) (bool, error) {
-	key := AccountTempCode + account
+	key := accountTempCode + account
 	return redis.Bool(d.Exec("EXISTS", key))
 }
 func (d *DataBases) SetAccountCode(account string, code, ttl int) (err error) {
-	key := AccountTempCode + account
+	key := accountTempCode + account
 	_, err = d.Exec("SET", key, code, "ex", ttl)
 	return err
 }
 func (d *DataBases) GetAccountCode(account string) (string, error) {
-	key := AccountTempCode + account
+	key := accountTempCode + account
 	return redis.String(d.Exec("GET", key))
 }
 
@@ -111,12 +118,14 @@ func (d *DataBases) DeleteTokenByUidPid(userID string, platformID int32, fields 
 	_, err := d.Exec("HDEL", key, redis.Args{}.Add().AddFlat(fields)...)
 	return err
 }
-func (d *DataBases) SetSingleConversationMsgOpt(userID, conversationID string, opt int) error {
+
+func (d *DataBases) SetSingleConversationRecvMsgOpt(userID, conversationID string, opt int32) error {
 	key := conversationReceiveMessageOpt + userID
 	_, err := d.Exec("HSet", key, conversationID, opt)
 	return err
 }
-func (d *DataBases) GetSingleConversationMsgOpt(userID, conversationID string) (int, error) {
+
+func (d *DataBases) GetSingleConversationRecvMsgOpt(userID, conversationID string) (int, error) {
 	key := conversationReceiveMessageOpt + userID
 	return redis.Int(d.Exec("HGet", key, conversationID))
 }
@@ -141,4 +150,103 @@ func (d *DataBases) GetMultiConversationMsgOpt(userID string, conversationIDs []
 	}
 	return m, nil
 
+}
+
+func (d *DataBases) SetGetuiToken(token string, expireTime int64) error {
+	_, err := d.Exec("SET", getuiToken, token, "ex", expireTime)
+	return err
+}
+
+func (d *DataBases) GetGetuiToken() (string, error) {
+	result, err := redis.String(d.Exec("GET", getuiToken))
+	return result, err
+}
+
+func (d *DataBases) SearchContentType() {
+
+}
+
+func (d *DataBases) SetUserInfoToCache(userID string, m map[string]interface{}) error {
+	_, err := d.Exec("hmset", userInfoCache+userID, redis.Args{}.Add().AddFlat(m)...)
+	return err
+}
+
+func (d *DataBases) GetUserInfoFromCache(userID string) (*pbCommon.UserInfo, error) {
+	result, err := redis.String(d.Exec("hgetall", userInfoCache+userID))
+	log2.NewInfo("", result)
+	if err != nil {
+		return nil, err
+	}
+	userInfo := &pbCommon.UserInfo{}
+	err = json.Unmarshal([]byte(result), userInfo)
+	return userInfo, err
+}
+
+func (d *DataBases) AddFriendToCache(userID string, friendIDList ...string) error {
+	var IDList []interface{}
+	for _, id := range friendIDList {
+		IDList = append(IDList, id)
+	}
+	_, err := d.Exec("SADD", friendRelationCache+userID, IDList...)
+	return err
+}
+
+func (d *DataBases) ReduceFriendToCache(userID string, friendIDList ...string) error {
+	var IDList []interface{}
+	for _, id := range friendIDList {
+		IDList = append(IDList, id)
+	}
+	_, err := d.Exec("SREM", friendRelationCache+userID, IDList...)
+	return err
+}
+
+func (d *DataBases) GetFriendIDListFromCache(userID string) ([]string, error) {
+	result, err := redis.Strings(d.Exec("SMEMBERS", friendRelationCache+userID))
+	return result, err
+}
+
+func (d *DataBases) AddBlackUserToCache(userID string, blackList ...string) error {
+	var IDList []interface{}
+	for _, id := range blackList {
+		IDList = append(IDList, id)
+	}
+	_, err := d.Exec("SADD", blackListCache+userID, IDList...)
+	return err
+}
+
+func (d *DataBases) ReduceBlackUserFromCache(userID string, blackList ...string) error {
+	var IDList []interface{}
+	for _, id := range blackList {
+		IDList = append(IDList, id)
+	}
+	_, err := d.Exec("SREM", blackListCache+userID, IDList...)
+	return err
+}
+
+func (d *DataBases) GetBlackListFromCache(userID string) ([]string, error) {
+	result, err := redis.Strings(d.Exec("SMEMBERS", blackListCache+userID))
+	return result, err
+}
+
+func (d *DataBases) AddGroupMemberToCache(groupID string, userIDList ...string) error {
+	var IDList []interface{}
+	for _, id := range userIDList {
+		IDList = append(IDList, id)
+	}
+	_, err := d.Exec("SADD", groupCache+groupID, IDList...)
+	return err
+}
+
+func (d *DataBases) ReduceGroupMemberFromCache(groupID string, userIDList ...string) error {
+	var IDList []interface{}
+	for _, id := range userIDList {
+		IDList = append(IDList, id)
+	}
+	_, err := d.Exec("SREM", groupCache+groupID, IDList...)
+	return err
+}
+
+func (d *DataBases) GetGroupMemberIDListFromCache(groupID string) ([]string, error) {
+	result, err := redis.Strings(d.Exec("SMEMBERS", groupCache+groupID))
+	return result, err
 }

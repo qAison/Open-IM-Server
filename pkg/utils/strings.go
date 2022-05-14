@@ -25,6 +25,10 @@ func StringToInt64(i string) int64 {
 	j, _ := strconv.ParseInt(i, 10, 64)
 	return j
 }
+func StringToInt32(i string) int32 {
+	j, _ := strconv.ParseInt(i, 10, 64)
+	return int32(j)
+}
 func Int32ToString(i int32) string {
 	return strconv.FormatInt(int64(i), 10)
 }
@@ -33,6 +37,14 @@ func Int32ToString(i int32) string {
 func IsContain(target string, List []string) bool {
 	for _, element := range List {
 
+		if target == element {
+			return true
+		}
+	}
+	return false
+}
+func IsContainInt32(target int32, List []int32) bool {
+	for _, element := range List {
 		if target == element {
 			return true
 		}
@@ -73,6 +85,8 @@ func GetConversationIDBySessionType(sourceID string, sessionType int) string {
 		return "single_" + sourceID
 	case constant.GroupChatType:
 		return "group_" + sourceID
+	case constant.NotificationChatType:
+		return "notification_" + sourceID
 	}
 	return ""
 }

@@ -108,6 +108,7 @@ type GroupMember struct {
 	JoinTime       time.Time `gorm:"column:join_time"`
 	JoinSource     int32     `gorm:"column:join_source"`
 	OperatorUserID string    `gorm:"column:operator_user_id;size:64"`
+	MuteEndTime    time.Time `gorm:"column:mute_end_time"`
 	Ex             string    `gorm:"column:ex;size:1024"`
 }
 
@@ -213,6 +214,76 @@ type Conversation struct {
 	UnreadCount      int32  `gorm:"column:unread_count" json:"unreadCount"`
 	DraftTextTime    int64  `gorm:"column:draft_text_time" json:"draftTextTime"`
 	IsPinned         bool   `gorm:"column:is_pinned" json:"isPinned"`
+	IsPrivateChat    bool   `gorm:"column:is_private_chat" json:"isPrivateChat"`
+	GroupAtType      int32  `gorm:"column:group_at_type" json:"groupAtType"`
+	IsNotInGroup     bool   `gorm:"column:is_not_in_group" json:"isNotInGroup"`
 	AttachedInfo     string `gorm:"column:attached_info;type:varchar(1024)" json:"attachedInfo"`
 	Ex               string `gorm:"column:ex;type:varchar(1024)" json:"ex"`
+}
+
+func (Conversation) TableName() string {
+	return "conversations"
+}
+
+type Department struct {
+	DepartmentID   string    `gorm:"column:department_id;primary_key;size:64" json:"departmentID"`
+	FaceURL        string    `gorm:"column:face_url;size:255" json:"faceURL"`
+	Name           string    `gorm:"column:name;size:256" json:"name" binding:"required"`
+	ParentID       string    `gorm:"column:parent_id;size:64" json:"parentID" binding:"required"` // "0" or Real parent id
+	Order          int32     `gorm:"column:order" json:"order" `                                  // 1, 2, ...
+	DepartmentType int32     `gorm:"column:department_type" json:"departmentType"`                //1, 2...
+	RelatedGroupID string    `gorm:"column:related_group_id;size:64" json:"relatedGroupID"`
+	CreateTime     time.Time `gorm:"column:create_time" json:"createTime"`
+	Ex             string    `gorm:"column:ex;type:varchar(1024)" json:"ex"`
+}
+
+func (Department) TableName() string {
+	return "departments"
+}
+
+type OrganizationUser struct {
+	UserID      string    `gorm:"column:user_id;primary_key;size:64"`
+	Nickname    string    `gorm:"column:nickname;size:256"`
+	EnglishName string    `gorm:"column:english_name;size:256"`
+	FaceURL     string    `gorm:"column:face_url;size:256"`
+	Gender      int32     `gorm:"column:gender"` //1 ,2
+	Mobile      string    `gorm:"column:mobile;size:32"`
+	Telephone   string    `gorm:"column:telephone;size:32"`
+	Birth       time.Time `gorm:"column:birth"`
+	Email       string    `gorm:"column:email;size:64"`
+	CreateTime  time.Time `gorm:"column:create_time"`
+	Ex          string    `gorm:"column:ex;size:1024"`
+}
+
+func (OrganizationUser) TableName() string {
+	return "organization_users"
+}
+
+type DepartmentMember struct {
+	UserID       string    `gorm:"column:user_id;primary_key;size:64"`
+	DepartmentID string    `gorm:"column:department_id;primary_key;size:64"`
+	Order        int32     `gorm:"column:order" json:"order"` //1,2
+	Position     string    `gorm:"column:position;size:256" json:"position"`
+	Leader       int32     `gorm:"column:leader" json:"leader"` //-1, 1
+	Status       int32     `gorm:"column:status" json:"status"` //-1, 1
+	CreateTime   time.Time `gorm:"column:create_time"`
+	Ex           string    `gorm:"column:ex;type:varchar(1024)" json:"ex"`
+}
+
+func (DepartmentMember) TableName() string {
+	return "department_members"
+}
+
+type AppVersion struct {
+	Version     string `gorm:"column:version;size:64" json:"version"`
+	Type        int    `gorm:"column:type;primary_key" json:"type"`
+	UpdateTime  int    `gorm:"column:update_time" json:"update_time"`
+	ForceUpdate bool   `gorm:"column:force_update" json:"force_update"`
+	FileName    string `gorm:"column:file_name" json:"file_name"`
+	YamlName    string `gorm:"column:yaml_name" json:"yaml_name"`
+	UpdateLog   string `gorm:"column:update_log" json:"update_log"`
+}
+
+func (AppVersion) TableName() string {
+	return "app_version"
 }

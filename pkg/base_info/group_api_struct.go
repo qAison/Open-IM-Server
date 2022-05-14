@@ -81,8 +81,8 @@ type GetGroupAllMemberResp struct {
 }
 
 type CreateGroupReq struct {
-	MemberList   []*GroupAddMemberInfo `json:"memberList"  binding:"required"`
-	OwnerUserID  string                `json:"ownerUserID" binding:"required"`
+	MemberList   []*GroupAddMemberInfo `json:"memberList"`
+	OwnerUserID  string                `json:"ownerUserID"`
 	GroupType    int32                 `json:"groupType"`
 	GroupName    string                `json:"groupName"`
 	Notification string                `json:"notification"`
@@ -90,6 +90,7 @@ type CreateGroupReq struct {
 	FaceURL      string                `json:"faceURL"`
 	Ex           string                `json:"ex"`
 	OperationID  string                `json:"operationID" binding:"required"`
+	GroupID      string                `json:"groupID"`
 }
 type CreateGroupResp struct {
 	CommResp
@@ -175,5 +176,59 @@ type TransferGroupOwnerReq struct {
 	OperationID    string `json:"operationID" binding:"required"`
 }
 type TransferGroupOwnerResp struct {
+	CommResp
+}
+
+type DismissGroupReq struct {
+	GroupID     string `json:"groupID" binding:"required"`
+	OperationID string `json:"operationID" binding:"required"`
+}
+type DismissGroupResp struct {
+	CommResp
+}
+
+type MuteGroupMemberReq struct {
+	OperationID  string `json:"operationID" binding:"required"`
+	GroupID      string `json:"groupID" binding:"required"`
+	UserID       string `json:"userID" binding:"required"`
+	MutedSeconds uint32 `json:"mutedSeconds" binding:"required"`
+}
+type MuteGroupMemberResp struct {
+	CommResp
+}
+
+type CancelMuteGroupMemberReq struct {
+	OperationID string `json:"operationID" binding:"required"`
+	GroupID     string `json:"groupID" binding:"required"`
+	UserID      string `json:"userID" binding:"required"`
+}
+type CancelMuteGroupMemberResp struct {
+	CommResp
+}
+
+type MuteGroupReq struct {
+	OperationID string `json:"operationID" binding:"required"`
+	GroupID     string `json:"groupID" binding:"required"`
+}
+type MuteGroupResp struct {
+	CommResp
+}
+
+type CancelMuteGroupReq struct {
+	OperationID string `json:"operationID" binding:"required"`
+	GroupID     string `json:"groupID" binding:"required"`
+}
+type CancelMuteGroupResp struct {
+	CommResp
+}
+
+type SetGroupMemberNicknameReq struct {
+	OperationID string `json:"operationID" binding:"required"`
+	GroupID     string `json:"groupID" binding:"required"`
+	UserID      string `json:"userID" binding:"required"`
+	Nickname    string `json:"nickname"`
+}
+
+type SetGroupMemberNicknameResp struct {
 	CommResp
 }

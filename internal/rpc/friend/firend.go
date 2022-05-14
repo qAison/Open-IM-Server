@@ -10,6 +10,7 @@ import (
 	"Open_IM/pkg/common/token_verify"
 	cp "Open_IM/pkg/common/utils"
 	"Open_IM/pkg/grpc-etcdv3/getcdv3"
+	pbCache "Open_IM/pkg/proto/cache"
 	pbFriend "Open_IM/pkg/proto/friend"
 	sdkws "Open_IM/pkg/proto/sdk_ws"
 	"Open_IM/pkg/utils"
@@ -29,7 +30,7 @@ type friendServer struct {
 }
 
 func NewFriendServer(port int) *friendServer {
-	log.NewPrivateLog("friend")
+	log.NewPrivateLog(constant.LogFileName)
 	return &friendServer{
 		rpcPort:         port,
 		rpcRegisterName: config.Config.RpcRegisterName.OpenImFriendName,
@@ -41,24 +42,37 @@ func NewFriendServer(port int) *friendServer {
 func (s *friendServer) Run() {
 	log.NewInfo("0", "friendServer run...")
 
-	ip := utils.ServerIP
-	registerAddress := ip + ":" + strconv.Itoa(s.rpcPort)
-	//listener network
-	listener, err := net.Listen("tcp", registerAddress)
-	if err != nil {
-		log.NewError("0", "Listen failed ", err.Error(), registerAddress)
-		return
+	listenIP := ""
+	if config.Config.ListenIP == "" {
+		listenIP = "0.0.0.0"
+	} else {
+		listenIP = config.Config.ListenIP
 	}
-	log.NewInfo("0", "listen ok ", registerAddress)
+	address := listenIP + ":" + strconv.Itoa(s.rpcPort)
+
+	//listener network
+	listener, err := net.Listen("tcp", address)
+	if err != nil {
+		panic("listening err:" + err.Error() + s.rpcRegisterName)
+	}
+	log.NewInfo("0", "listen ok ", address)
 	defer listener.Close()
 	//grpc server
 	srv := grpc.NewServer()
 	defer srv.GracefulStop()
 	//User friend related services register to etcd
 	pbFriend.RegisterFriendServer(srv, s)
-	err = getcdv3.RegisterEtcd(s.etcdSchema, strings.Join(s.etcdAddr, ","), ip, s.rpcPort, s.rpcRegisterName, 10)
+	rpcRegisterIP := ""
+	if config.Config.RpcRegisterIP == "" {
+		rpcRegisterIP, err = utils.GetLocalIP()
+		if err != nil {
+			log.Error("", "GetLocalIP failed ", err.Error())
+		}
+	}
+
+	err = getcdv3.RegisterEtcd(s.etcdSchema, strings.Join(s.etcdAddr, ","), rpcRegisterIP, s.rpcPort, s.rpcRegisterName, 10)
 	if err != nil {
-		log.NewError("0", "RegisterEtcd failed ", err.Error(), s.etcdSchema, strings.Join(s.etcdAddr, ","), ip, s.rpcPort, s.rpcRegisterName)
+		log.NewError("0", "RegisterEtcd failed ", err.Error(), s.etcdSchema, strings.Join(s.etcdAddr, ","), rpcRegisterIP, s.rpcPort, s.rpcRegisterName)
 		return
 	}
 	err = srv.Serve(listener)
@@ -83,6 +97,18 @@ func (s *friendServer) AddBlacklist(ctx context.Context, req *pbFriend.AddBlackl
 		return &pbFriend.AddBlacklistResp{CommonResp: &pbFriend.CommonResp{ErrCode: constant.ErrDB.ErrCode, ErrMsg: constant.ErrDB.ErrMsg}}, nil
 	}
 	log.NewInfo(req.CommID.OperationID, "AddBlacklist rpc ok ", req.CommID.FromUserID, req.CommID.ToUserID)
+	reqAddBlackUserToCache := &pbCache.AddBlackUserToCacheReq{UserID: req.CommID.FromUserID, BlackUserID: req.CommID.ToUserID, OperationID: req.CommID.OperationID}
+	etcdConn := getcdv3.GetConn(config.Config.Etcd.EtcdSchema, strings.Join(config.Config.Etcd.EtcdAddr, ","), config.Config.RpcRegisterName.OpenImCacheName)
+	cacheClient := pbCache.NewCacheClient(etcdConn)
+	cacheResp, err := cacheClient.AddBlackUserToCache(context.Background(), reqAddBlackUserToCache)
+	if err != nil {
+		log.NewError(req.CommID.OperationID, "AddBlackUserToCache rpc call failed ", err.Error())
+		return &pbFriend.AddBlacklistResp{CommonResp: &pbFriend.CommonResp{ErrCode: 500, ErrMsg: "AddBlackUserToCache rpc call failed"}}, nil
+	}
+	if cacheResp.CommonResp.ErrCode != 0 {
+		log.NewError(req.CommID.OperationID, "AddBlackUserToCache rpc logic call failed ", cacheResp.String())
+		return &pbFriend.AddBlacklistResp{CommonResp: &pbFriend.CommonResp{ErrCode: cacheResp.CommonResp.ErrCode, ErrMsg: cacheResp.CommonResp.ErrMsg}}, nil
+	}
 	chat.BlackAddedNotification(req)
 	return &pbFriend.AddBlacklistResp{CommonResp: &pbFriend.CommonResp{}}, nil
 }
@@ -234,9 +260,37 @@ func (s *friendServer) AddFriendResponse(ctx context.Context, req *pbFriend.AddF
 				log.NewError(req.CommID.OperationID, "InsertToFriend failed ", err.Error(), toInsertFollow)
 				return &pbFriend.AddFriendResponseResp{CommonResp: &pbFriend.CommonResp{ErrCode: constant.ErrDB.ErrCode, ErrMsg: constant.ErrDB.ErrMsg}}, nil
 			}
+			// cache rpc
+			addFriendToCacheReq := &pbCache.AddFriendToCacheReq{OperationID: req.CommID.OperationID}
+			etcdConn := getcdv3.GetConn(config.Config.Etcd.EtcdSchema, strings.Join(config.Config.Etcd.EtcdAddr, ","), config.Config.RpcRegisterName.OpenImCacheName)
+			client := pbCache.NewCacheClient(etcdConn)
+			addFriendToCacheReq.UserID = req.CommID.ToUserID
+			addFriendToCacheReq.FriendID = req.CommID.FromUserID
+			respPb, err := client.AddFriendToCache(context.Background(), addFriendToCacheReq)
+			if err != nil {
+				log.NewError(req.CommID.OperationID, utils.GetSelfFuncName(), "AddFriendToCache failed", err.Error(), addFriendToCacheReq.String())
+				return &pbFriend.AddFriendResponseResp{CommonResp: &pbFriend.CommonResp{ErrCode: constant.ErrServer.ErrCode, ErrMsg: constant.ErrServer.ErrMsg}}, nil
+			}
+			if respPb.CommonResp.ErrCode != 0 {
+				log.NewError(req.CommID.OperationID, utils.GetSelfFuncName(), "AddFriendToCache failed", addFriendToCacheReq.String())
+				return &pbFriend.AddFriendResponseResp{CommonResp: &pbFriend.CommonResp{ErrCode: respPb.CommonResp.ErrCode, ErrMsg: respPb.CommonResp.ErrMsg}}, nil
+			}
+			addFriendToCacheReq.UserID = req.CommID.FromUserID
+			addFriendToCacheReq.FriendID = req.CommID.ToUserID
+			respPb, err = client.AddFriendToCache(context.Background(), addFriendToCacheReq)
+			if err != nil {
+				log.NewError(req.CommID.OperationID, utils.GetSelfFuncName(), "AddFriendToCache failed", err.Error(), addFriendToCacheReq.String())
+				return &pbFriend.AddFriendResponseResp{CommonResp: &pbFriend.CommonResp{ErrCode: constant.ErrServer.ErrCode, ErrMsg: constant.ErrServer.ErrMsg}}, nil
+			}
+			if respPb.CommonResp.ErrCode != 0 {
+				log.NewError(req.CommID.OperationID, utils.GetSelfFuncName(), "AddFriendToCache failed", addFriendToCacheReq.String())
+				return &pbFriend.AddFriendResponseResp{CommonResp: &pbFriend.CommonResp{ErrCode: respPb.CommonResp.ErrCode, ErrMsg: respPb.CommonResp.ErrMsg}}, nil
+			}
+
 			chat.FriendAddedNotification(req.CommID.OperationID, req.CommID.OpUserID, req.CommID.FromUserID, req.CommID.ToUserID)
 		}
 	}
+
 	if req.HandleResult == constant.FriendResponseAgree {
 		chat.FriendApplicationApprovedNotification(req)
 	} else if req.HandleResult == constant.FriendResponseRefuse {
@@ -244,6 +298,7 @@ func (s *friendServer) AddFriendResponse(ctx context.Context, req *pbFriend.AddF
 	} else {
 		log.Error(req.CommID.OperationID, "HandleResult failed ", req.HandleResult)
 	}
+
 	log.NewInfo(req.CommID.OperationID, "rpc AddFriendResponse ok")
 	return &pbFriend.AddFriendResponseResp{CommonResp: &pbFriend.CommonResp{}}, nil
 }
@@ -261,6 +316,18 @@ func (s *friendServer) DeleteFriend(ctx context.Context, req *pbFriend.DeleteFri
 		return &pbFriend.DeleteFriendResp{CommonResp: &pbFriend.CommonResp{ErrCode: constant.ErrAccess.ErrCode, ErrMsg: constant.ErrAccess.ErrMsg}}, nil
 	}
 	log.NewInfo(req.CommID.OperationID, "DeleteFriend rpc ok")
+	reduceFriendFromCache := &pbCache.ReduceFriendFromCacheReq{OperationID: req.CommID.OperationID, UserID: req.CommID.FromUserID, FriendID: req.CommID.ToUserID}
+	etcdConn := getcdv3.GetConn(config.Config.Etcd.EtcdSchema, strings.Join(config.Config.Etcd.EtcdAddr, ","), config.Config.RpcRegisterName.OpenImCacheName)
+	client := pbCache.NewCacheClient(etcdConn)
+	respPb, err := client.ReduceFriendFromCache(context.Background(), reduceFriendFromCache)
+	if err != nil {
+		log.NewError(req.CommID.OperationID, utils.GetSelfFuncName(), "AddFriendToCache rpc failed", err.Error())
+		return &pbFriend.DeleteFriendResp{CommonResp: &pbFriend.CommonResp{ErrCode: constant.ErrServer.ErrCode, ErrMsg: constant.ErrServer.ErrMsg}}, nil
+	}
+	if respPb.CommonResp.ErrCode != 0 {
+		log.NewError(req.CommID.OperationID, utils.GetSelfFuncName(), "AddFriendToCache failed")
+		return &pbFriend.DeleteFriendResp{CommonResp: &pbFriend.CommonResp{ErrCode: respPb.CommonResp.ErrCode, ErrMsg: respPb.CommonResp.ErrMsg}}, nil
+	}
 	chat.FriendDeletedNotification(req)
 	return &pbFriend.DeleteFriendResp{CommonResp: &pbFriend.CommonResp{}}, nil
 }
@@ -330,6 +397,18 @@ func (s *friendServer) RemoveBlacklist(ctx context.Context, req *pbFriend.Remove
 
 	}
 	log.NewInfo(req.CommID.OperationID, "rpc RemoveBlacklist ok ")
+	reqReduceBlackUserFromCache := &pbCache.ReduceBlackUserFromCacheReq{UserID: req.CommID.FromUserID, BlackUserID: req.CommID.ToUserID, OperationID: req.CommID.OperationID}
+	etcdConn := getcdv3.GetConn(config.Config.Etcd.EtcdSchema, strings.Join(config.Config.Etcd.EtcdAddr, ","), config.Config.RpcRegisterName.OpenImCacheName)
+	cacheClient := pbCache.NewCacheClient(etcdConn)
+	cacheResp, err := cacheClient.ReduceBlackUserFromCache(context.Background(), reqReduceBlackUserFromCache)
+	if err != nil {
+		log.NewError(req.CommID.OperationID, "ReduceBlackUserFromCache rpc call failed ", err.Error())
+		return &pbFriend.RemoveBlacklistResp{CommonResp: &pbFriend.CommonResp{ErrCode: 500, ErrMsg: "ReduceBlackUserFromCache rpc call failed"}}, nil
+	}
+	if cacheResp.CommonResp.ErrCode != 0 {
+		log.NewError(req.CommID.OperationID, "ReduceBlackUserFromCache rpc logic call failed ", cacheResp.String())
+		return &pbFriend.RemoveBlacklistResp{CommonResp: &pbFriend.CommonResp{ErrCode: cacheResp.CommonResp.ErrCode, ErrMsg: cacheResp.CommonResp.ErrMsg}}, nil
+	}
 	chat.BlackDeletedNotification(req)
 	return &pbFriend.RemoveBlacklistResp{CommonResp: &pbFriend.CommonResp{}}, nil
 }
@@ -351,7 +430,7 @@ func (s *friendServer) IsInBlackList(ctx context.Context, req *pbFriend.IsInBlac
 }
 
 func (s *friendServer) IsFriend(ctx context.Context, req *pbFriend.IsFriendReq) (*pbFriend.IsFriendResp, error) {
-	log.NewInfo("IsFriend args ", req.String())
+	log.NewInfo(req.CommID.OperationID, req.String())
 	var isFriend bool
 	if !token_verify.CheckAccess(req.CommID.OpUserID, req.CommID.FromUserID) {
 		log.NewError(req.CommID.OperationID, "CheckAccess false ", req.CommID.OpUserID, req.CommID.FromUserID)
@@ -363,7 +442,7 @@ func (s *friendServer) IsFriend(ctx context.Context, req *pbFriend.IsFriendReq) 
 	} else {
 		isFriend = false
 	}
-	log.NewInfo("IsFriend rpc ok ", pbFriend.IsFriendResp{Response: isFriend})
+	log.NewInfo(req.CommID.OperationID, pbFriend.IsFriendResp{Response: isFriend})
 	return &pbFriend.IsFriendResp{Response: isFriend}, nil
 }
 

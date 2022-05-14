@@ -1,7 +1,7 @@
 .PHONY: all build run gotool install clean help
 
-BINARY_NAME=open_im_timer_task
-BIN_DIR=../../bin/
+BINARY_NAME=open_im_cache
+BIN_DIR=../../../bin/
 
 all: gotool build
 
@@ -21,5 +21,4 @@ install:
 
 clean:
 	@if [ -f ${BINARY_NAME} ] ; then rm ${BINARY_NAME} ; fi
-
 
