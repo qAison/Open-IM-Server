@@ -1,6 +1,7 @@
 package getui
 
 import (
+	"Open_IM/internal/push"
 	"Open_IM/pkg/common/config"
 	"Open_IM/pkg/common/db"
 	"Open_IM/pkg/common/log"
@@ -82,13 +83,31 @@ type Alert struct {
 type Android struct {
 	Ups struct {
 		Notification Notification `json:"notification"`
+		Options      Options      `json:"options"`
 	} `json:"ups"`
 }
 
 type Notification struct {
-	Title     string `json:"title"`
-	Body      string `json:"body"`
-	ClickType string `json:"click_type"`
+	Title       string `json:"title"`
+	Body        string `json:"body"`
+	ChannelID   string `json:"channelID"`
+	ChannelName string `json:"ChannelName"`
+	ClickType   string `json:"click_type"`
+}
+
+type Options struct {
+	HW struct {
+		DefaultSound bool   `json:"/message/android/notification/default_sound"`
+		ChannelID    string `json:"/message/android/notification/channel_id"`
+		Sound        string `json:"/message/android/notification/sound"`
+		Importance   string `json:"/message/android/notification/importance"`
+	} `json:"HW"`
+	XM struct {
+		ChannelID string `json:"/extra.channel_id"`
+	} `json:"XM"`
+	VV struct {
+		Classification int `json:"/classification"`
+	} `json:"VV"`
 }
 
 type PushResp struct {
@@ -98,7 +117,7 @@ func newGetuiClient() *Getui {
 	return &Getui{}
 }
 
-func (g *Getui) Push(userIDList []string, alert, detailContent, operationID string) (resp string, err error) {
+func (g *Getui) Push(userIDList []string, title, detailContent, operationID string, opts push.PushOpts) (resp string, err error) {
 	token, err := db.DB.GetGetuiToken()
 	log.NewDebug(operationID, utils.GetSelfFuncName(), "token：", token)
 	if err != nil {
@@ -118,19 +137,37 @@ func (g *Getui) Push(userIDList []string, alert, detailContent, operationID stri
 		}{Alias: []string{userIDList[0]}},
 	}
 	pushReq.PushMessage.Notification = Notification{
-		Title:     alert,
-		Body:      alert,
-		ClickType: "startapp",
+		Title:       title,
+		Body:        detailContent,
+		ClickType:   "startapp",
+		ChannelID:   config.Config.Push.Getui.ChannelID,
+		ChannelName: config.Config.Push.Getui.ChannelName,
 	}
 	pushReq.PushChannel.Ios.Aps.Sound = "default"
 	pushReq.PushChannel.Ios.Aps.Alert = Alert{
-		Title: alert,
-		Body:  alert,
+		Title: title,
+		Body:  title,
 	}
 	pushReq.PushChannel.Android.Ups.Notification = Notification{
-		Title:     alert,
-		Body:      alert,
+		Title:     title,
+		Body:      title,
 		ClickType: "startapp",
+	}
+	pushReq.PushChannel.Android.Ups.Options = Options{
+		HW: struct {
+			DefaultSound bool   `json:"/message/android/notification/default_sound"`
+			ChannelID    string `json:"/message/android/notification/channel_id"`
+			Sound        string `json:"/message/android/notification/sound"`
+			Importance   string `json:"/message/android/notification/importance"`
+		}{ChannelID: "RingRing4", Sound: "/raw/ring001", Importance: "NORMAL"},
+		XM: struct {
+			ChannelID string `json:"/extra.channel_id"`
+		}{ChannelID: "high_system"},
+		VV: struct {
+			Classification int "json:\"/classification\""
+		}{
+			Classification: 1,
+		},
 	}
 	pushResp := PushResp{}
 	err = g.request(PushURL, pushReq, token, &pushResp, operationID)
@@ -178,7 +215,7 @@ func (g *Getui) request(url string, content interface{}, token string, returnStr
 		return err
 	}
 	client := &http.Client{}
-	log.Debug(operationID, utils.GetSelfFuncName(), "json:", string(con))
+	log.Debug(operationID, utils.GetSelfFuncName(), "json:", string(con), "token:", token)
 	req, err := http.NewRequest("POST", config.Config.Push.Getui.PushUrl+url, bytes.NewBuffer(con))
 	if err != nil {
 		return err
@@ -196,7 +233,7 @@ func (g *Getui) request(url string, content interface{}, token string, returnStr
 	if err != nil {
 		return err
 	}
-	log.NewInfo(operationID, "getui", utils.GetSelfFuncName(), "resp, ", string(result))
+	log.NewDebug(operationID, "getui", utils.GetSelfFuncName(), "resp, ", string(result))
 	commonResp := GetuiCommonResp{}
 	commonResp.Data = returnStruct
 	if err := json.Unmarshal(result, &commonResp); err != nil {

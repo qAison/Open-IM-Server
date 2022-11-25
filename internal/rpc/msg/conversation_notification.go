@@ -49,12 +49,6 @@ func ConversationSetPrivateNotification(operationID, sendID, recvID string, isPr
 	}
 	var tips open_im_sdk.TipsComm
 	var tipsMsg string
-	//var senderName string
-	//senderName, err := im_mysql_model.GetUserNameByUserID(sendID)
-	//if err != nil {
-	//	log.NewError(operationID, utils.GetSelfFuncName(), err.Error())
-	//	senderName = sendID
-	//}
 	if isPrivateChat == true {
 		tipsMsg = config.Config.Notification.ConversationSetPrivate.DefaultTips.OpenTips
 	} else {
@@ -73,4 +67,17 @@ func ConversationChangeNotification(operationID, userID string) {
 	var tips open_im_sdk.TipsComm
 	tips.DefaultTips = config.Config.Notification.ConversationOptUpdate.DefaultTips.Tips
 	SetConversationNotification(operationID, userID, userID, constant.ConversationOptChangeNotification, ConversationChangedTips, tips)
+}
+
+//会话未读数同步
+func ConversationUnreadChangeNotification(operationID, userID, conversationID string, updateUnreadCountTime int64) {
+	log.NewInfo(operationID, utils.GetSelfFuncName())
+	ConversationChangedTips := &open_im_sdk.ConversationUpdateTips{
+		UserID:                userID,
+		ConversationIDList:    []string{conversationID},
+		UpdateUnreadCountTime: updateUnreadCountTime,
+	}
+	var tips open_im_sdk.TipsComm
+	tips.DefaultTips = config.Config.Notification.ConversationOptUpdate.DefaultTips.Tips
+	SetConversationNotification(operationID, userID, userID, constant.ConversationUnreadNotification, ConversationChangedTips, tips)
 }

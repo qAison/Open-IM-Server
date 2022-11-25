@@ -33,7 +33,7 @@ type GetGroupMembersInfoReq struct {
 type GetGroupMembersInfoResp struct {
 	CommResp
 	MemberList []*open_im_sdk.GroupMemberFullInfo `json:"-"`
-	Data       []map[string]interface{}           `json:"data"`
+	Data       []map[string]interface{}           `json:"data" swaggerignore:"true"`
 }
 
 type InviteUserToGroupReq struct {
@@ -54,7 +54,7 @@ type GetJoinedGroupListReq struct {
 type GetJoinedGroupListResp struct {
 	CommResp
 	GroupInfoList []*open_im_sdk.GroupInfo `json:"-"`
-	Data          []map[string]interface{} `json:"data"`
+	Data          []map[string]interface{} `json:"data" swaggerignore:"true"`
 }
 
 type GetGroupMemberListReq struct {
@@ -67,18 +67,33 @@ type GetGroupMemberListResp struct {
 	CommResp
 	NextSeq    int32                              `json:"nextSeq"`
 	MemberList []*open_im_sdk.GroupMemberFullInfo `json:"-"`
-	Data       []map[string]interface{}           `json:"data"`
+	Data       []map[string]interface{}           `json:"data" swaggerignore:"true"`
 }
 
 type GetGroupAllMemberReq struct {
 	GroupID     string `json:"groupID" binding:"required"`
 	OperationID string `json:"operationID" binding:"required"`
+	Offset      int32  `json:"offset"`
+	Count       int32  `json:"count"`
 }
 type GetGroupAllMemberResp struct {
 	CommResp
 	MemberList []*open_im_sdk.GroupMemberFullInfo `json:"-"`
-	Data       []map[string]interface{}           `json:"data"`
+	Data       []map[string]interface{}           `json:"data" swaggerignore:"true"`
 }
+
+//
+//type GetGroupAllMemberListBySplitReq struct {
+//	GroupID     string `json:"groupID" binding:"required"`
+//	OperationID string `json:"operationID" binding:"required"`
+//	Offset      int32  `json:"offset" binding:"required"`
+//	Count       int32  `json:"count" binding:"required"`
+//}
+//type GetGroupAllMemberListBySplitResp struct {
+//	CommResp
+//	MemberList []*open_im_sdk.GroupMemberFullInfo `json:"-"`
+//	Data       []map[string]interface{}           `json:"data" swaggerignore:"true"`
+//}
 
 type CreateGroupReq struct {
 	MemberList   []*GroupAddMemberInfo `json:"memberList"`
@@ -95,7 +110,7 @@ type CreateGroupReq struct {
 type CreateGroupResp struct {
 	CommResp
 	GroupInfo open_im_sdk.GroupInfo  `json:"-"`
-	Data      map[string]interface{} `json:"data"`
+	Data      map[string]interface{} `json:"data" swaggerignore:"true"`
 }
 
 type GetGroupApplicationListReq struct {
@@ -105,7 +120,7 @@ type GetGroupApplicationListReq struct {
 type GetGroupApplicationListResp struct {
 	CommResp
 	GroupRequestList []*open_im_sdk.GroupRequest `json:"-"`
-	Data             []map[string]interface{}    `json:"data"`
+	Data             []map[string]interface{}    `json:"data" swaggerignore:"true"`
 }
 
 type GetUserReqGroupApplicationListReq struct {
@@ -125,8 +140,29 @@ type GetGroupInfoReq struct {
 type GetGroupInfoResp struct {
 	CommResp
 	GroupInfoList []*open_im_sdk.GroupInfo `json:"-"`
-	Data          []map[string]interface{} `json:"data"`
+	Data          []map[string]interface{} `json:"data" swaggerignore:"true"`
 }
+
+//type GroupInfoAlias struct {
+//	open_im_sdk.GroupInfo
+//	NeedVerification int32 `protobuf:"bytes,13,opt,name=needVerification" json:"needVerification,omitempty"`
+//}
+
+//type GroupInfoAlias struct {
+//	GroupID          string `protobuf:"bytes,1,opt,name=groupID" json:"groupID,omitempty"`
+//	GroupName        string `protobuf:"bytes,2,opt,name=groupName" json:"groupName,omitempty"`
+//	Notification     string `protobuf:"bytes,3,opt,name=notification" json:"notification,omitempty"`
+//	Introduction     string `protobuf:"bytes,4,opt,name=introduction" json:"introduction,omitempty"`
+//	FaceURL          string `protobuf:"bytes,5,opt,name=faceURL" json:"faceURL,omitempty"`
+//	OwnerUserID      string `protobuf:"bytes,6,opt,name=ownerUserID" json:"ownerUserID,omitempty"`
+//	CreateTime       uint32 `protobuf:"varint,7,opt,name=createTime" json:"createTime,omitempty"`
+//	MemberCount      uint32 `protobuf:"varint,8,opt,name=memberCount" json:"memberCount,omitempty"`
+//	Ex               string `protobuf:"bytes,9,opt,name=ex" json:"ex,omitempty"`
+//	Status           int32  `protobuf:"varint,10,opt,name=status" json:"status,omitempty"`
+//	CreatorUserID    string `protobuf:"bytes,11,opt,name=creatorUserID" json:"creatorUserID,omitempty"`
+//	GroupType        int32  `protobuf:"varint,12,opt,name=groupType" json:"groupType,omitempty"`
+//	NeedVerification int32  `protobuf:"bytes,13,opt,name=needVerification" json:"needVerification,omitempty"`
+//}
 
 type ApplicationGroupResponseReq struct {
 	OperationID  string `json:"operationID" binding:"required"`
@@ -140,10 +176,13 @@ type ApplicationGroupResponseResp struct {
 }
 
 type JoinGroupReq struct {
-	GroupID     string `json:"groupID" binding:"required"`
-	ReqMessage  string `json:"reqMessage"`
-	OperationID string `json:"operationID" binding:"required"`
+	GroupID       string `json:"groupID" binding:"required"`
+	ReqMessage    string `json:"reqMessage"`
+	OperationID   string `json:"operationID" binding:"required"`
+	JoinSource    int32  `json:"joinSource"`
+	InviterUserID string `json:"inviterUserID"`
 }
+
 type JoinGroupResp struct {
 	CommResp
 }
@@ -157,14 +196,18 @@ type QuitGroupResp struct {
 }
 
 type SetGroupInfoReq struct {
-	GroupID      string `json:"groupID" binding:"required"`
-	GroupName    string `json:"groupName"`
-	Notification string `json:"notification"`
-	Introduction string `json:"introduction"`
-	FaceURL      string `json:"faceURL"`
-	Ex           string `json:"ex"`
-	OperationID  string `json:"operationID" binding:"required"`
+	GroupID           string `json:"groupID" binding:"required"`
+	GroupName         string `json:"groupName"`
+	Notification      string `json:"notification"`
+	Introduction      string `json:"introduction"`
+	FaceURL           string `json:"faceURL"`
+	Ex                string `json:"ex"`
+	OperationID       string `json:"operationID" binding:"required"`
+	NeedVerification  *int32 `json:"needVerification"`
+	LookMemberInfo    *int32 `json:"lookMemberInfo"`
+	ApplyMemberFriend *int32 `json:"applyMemberFriend"`
 }
+
 type SetGroupInfoResp struct {
 	CommResp
 }
@@ -231,4 +274,29 @@ type SetGroupMemberNicknameReq struct {
 
 type SetGroupMemberNicknameResp struct {
 	CommResp
+}
+
+type SetGroupMemberInfoReq struct {
+	OperationID string  `json:"operationID" binding:"required"`
+	GroupID     string  `json:"groupID" binding:"required"`
+	UserID      string  `json:"userID" binding:"required"`
+	Nickname    *string `json:"nickname"`
+	FaceURL     *string `json:"userGroupFaceUrl"`
+	RoleLevel   *int32  `json:"roleLevel" validate:"gte=1,lte=3"`
+	Ex          *string `json:"ex"`
+}
+
+type SetGroupMemberInfoResp struct {
+	CommResp
+}
+
+type GetGroupAbstractInfoReq struct {
+	OperationID string `json:"operationID"`
+	GroupID     string `json:"groupID"`
+}
+
+type GetGroupAbstractInfoResp struct {
+	CommResp
+	GroupMemberNumber   int32  `json:"groupMemberNumber"`
+	GroupMemberListHash uint64 `json:"groupMemberListHash"`
 }

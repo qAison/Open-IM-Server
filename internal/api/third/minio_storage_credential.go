@@ -1,7 +1,7 @@
 package apiThird
 
 import (
-	apiStruct "Open_IM/pkg/base_info"
+	api "Open_IM/pkg/base_info"
 	"Open_IM/pkg/common/config"
 	"Open_IM/pkg/common/constant"
 	imdb "Open_IM/pkg/common/db/mysql_model/im_mysql_model"
@@ -15,12 +15,28 @@ import (
 	_ "github.com/minio/minio-go/v7"
 	cr "github.com/minio/minio-go/v7/pkg/credentials"
 	"net/http"
+	"strconv"
+	"strings"
 )
 
+// @Summary minio上传文件(web api)
+// @Description minio上传文件(web api), 请注意本api请求为form并非json
+// @Tags 第三方服务相关
+// @ID MinioUploadFile
+// @Accept json
+// @Param token header string true "im token"
+// @Param file formData file true "要上传的文件文件"
+// @Param fileType formData int true "文件类型"
+// @Param operationID formData string true "操作唯一ID"
+// @Produce json
+// @Success 0 {object} api.MinioUploadFileResp ""
+// @Failure 500 {object} api.Swagger500Resp "errCode为500 一般为服务器内部错误"
+// @Failure 400 {object} api.Swagger400Resp "errCode为400 一般为参数输入错误, token未带上等"
+// @Router /third/minio_upload [post]
 func MinioUploadFile(c *gin.Context) {
 	var (
-		req  apiStruct.MinioUploadFileReq
-		resp apiStruct.MinioUploadFileResp
+		req  api.MinioUploadFileReq
+		resp api.MinioUploadFile
 	)
 	defer func() {
 		if r := recover(); r != nil {
@@ -41,7 +57,7 @@ func MinioUploadFile(c *gin.Context) {
 	if !ok {
 		errMsg := req.OperationID + " " + "GetUserIDFromToken failed " + errInfo + " token:" + c.Request.Header.Get("token")
 		log.NewError(req.OperationID, errMsg)
-		c.JSON(http.StatusInternalServerError, gin.H{"errCode": 500, "errMsg": errMsg})
+		c.JSON(http.StatusBadRequest, gin.H{"errCode": 500, "errMsg": errMsg})
 		return
 	}
 
@@ -87,7 +103,7 @@ func MinioUploadFile(c *gin.Context) {
 	log.Debug(req.OperationID, utils.GetSelfFuncName(), config.Config.Credential.Minio.Bucket, newName, fileObj, file.Size, newType, MinioClient.EndpointURL())
 	_, err = MinioClient.PutObject(context.Background(), config.Config.Credential.Minio.Bucket, newName, fileObj, file.Size, minio.PutObjectOptions{ContentType: newType})
 	if err != nil {
-		log.NewError(req.OperationID, utils.GetSelfFuncName(), "upload file error")
+		log.NewError(req.OperationID, utils.GetSelfFuncName(), "upload file error", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"errCode": 500, "errMsg": "upload file error" + err.Error()})
 		return
 	}
@@ -100,8 +116,8 @@ func MinioUploadFile(c *gin.Context) {
 
 func MinioStorageCredential(c *gin.Context) {
 	var (
-		req  apiStruct.MinioStorageCredentialReq
-		resp apiStruct.MiniostorageCredentialResp
+		req  api.MinioStorageCredentialReq
+		resp api.MiniostorageCredentialResp
 	)
 	if err := c.BindJSON(&req); err != nil {
 		log.NewError("0", utils.GetSelfFuncName(), "BindJSON failed ", err.Error())
@@ -131,13 +147,13 @@ func MinioStorageCredential(c *gin.Context) {
 	}
 	li, err := cr.NewSTSAssumeRole(endpoint, stsOpts)
 	if err != nil {
-		log.NewError("", utils.GetSelfFuncName(), "NewSTSAssumeRole failed", err.Error(), stsOpts, config.Config.Credential.Minio.Endpoint)
+		log.NewError(req.OperationID, utils.GetSelfFuncName(), "NewSTSAssumeRole failed", err.Error(), stsOpts, config.Config.Credential.Minio.Endpoint)
 		c.JSON(http.StatusBadRequest, gin.H{"errCode": 400, "errMsg": err.Error()})
 		return
 	}
 	v, err := li.Get()
 	if err != nil {
-		log.NewError("0", utils.GetSelfFuncName(), "li.Get error", err.Error())
+		log.NewError(req.OperationID, utils.GetSelfFuncName(), "li.Get error", err.Error())
 		c.JSON(http.StatusBadRequest, gin.H{"errCode": 400, "errMsg": err.Error()})
 		return
 	}
@@ -146,13 +162,15 @@ func MinioStorageCredential(c *gin.Context) {
 	resp.AccessKeyID = v.AccessKeyID
 	resp.BucketName = config.Config.Credential.Minio.Bucket
 	resp.StsEndpointURL = config.Config.Credential.Minio.Endpoint
+	resp.StorageTime = config.Config.Credential.Minio.StorageTime
+	resp.IsDistributedMod = config.Config.Credential.Minio.IsDistributedMod
 	c.JSON(http.StatusOK, gin.H{"errCode": 0, "errMsg": "", "data": resp})
 }
 
 func UploadUpdateApp(c *gin.Context) {
 	var (
-		req  apiStruct.UploadUpdateAppReq
-		resp apiStruct.UploadUpdateAppResp
+		req  api.UploadUpdateAppReq
+		resp api.UploadUpdateAppResp
 	)
 	if err := c.Bind(&req); err != nil {
 		log.NewError(req.OperationID, utils.GetSelfFuncName(), "BindJSON failed ", err.Error())
@@ -160,6 +178,7 @@ func UploadUpdateApp(c *gin.Context) {
 		return
 	}
 	log.NewInfo(req.OperationID, utils.GetSelfFuncName(), "req: ", req)
+
 	var yamlName string
 	if req.Yaml == nil {
 		yamlName = ""
@@ -202,10 +221,17 @@ func UploadUpdateApp(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
+func version2Int(version string) (int, error) {
+	versions := strings.Split(version, ".")
+	s := strings.Join(versions, "")
+	versionInt, err := strconv.Atoi(s)
+	return versionInt, err
+}
+
 func GetDownloadURL(c *gin.Context) {
 	var (
-		req  apiStruct.GetDownloadURLReq
-		resp apiStruct.GetDownloadURLResp
+		req  api.GetDownloadURLReq
+		resp api.GetDownloadURLResp
 	)
 	defer func() {
 		log.NewInfo(req.OperationID, utils.GetSelfFuncName(), "resp: ", resp)
@@ -222,7 +248,13 @@ func GetDownloadURL(c *gin.Context) {
 	}
 	log.Debug(req.OperationID, utils.GetSelfFuncName(), "app: ", app)
 	if app != nil {
-		if app.Version != req.Version && app.Version != "" {
+		appVersion, err := version2Int(app.Version)
+		reqVersion, err := version2Int(req.Version)
+		if err != nil {
+			log.NewError(req.OperationID, utils.GetSelfFuncName(), err.Error(), "req version", req.Version, "app version", app.Version)
+		}
+		log.NewDebug(req.OperationID, utils.GetSelfFuncName(), "req version:", reqVersion, "app version:", appVersion)
+		if appVersion > reqVersion && app.Version != "" {
 			resp.Data.HasNewVersion = true
 			if app.ForceUpdate == true {
 				resp.Data.ForceUpdate = true

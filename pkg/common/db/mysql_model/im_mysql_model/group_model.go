@@ -4,9 +4,8 @@ import (
 	"Open_IM/pkg/common/constant"
 	"Open_IM/pkg/common/db"
 	"Open_IM/pkg/utils"
-	"errors"
 	"fmt"
-	"github.com/jinzhu/gorm"
+
 	"time"
 )
 
@@ -24,62 +23,52 @@ import (
 //}
 
 func InsertIntoGroup(groupInfo db.Group) error {
-	dbConn, err := db.DB.MysqlDB.DefaultGormDB()
-	if err != nil {
-		return err
-	}
 	if groupInfo.GroupName == "" {
 		groupInfo.GroupName = "Group Chat"
 	}
 	groupInfo.CreateTime = time.Now()
-	err = dbConn.Table("groups").Create(groupInfo).Error
+
+	if groupInfo.NotificationUpdateTime.Unix() < 0 {
+		groupInfo.NotificationUpdateTime = utils.UnixSecondToTime(0)
+	}
+	err := db.DB.MysqlDB.DefaultGormDB().Table("groups").Create(groupInfo).Error
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func GetGroupInfoByGroupID(groupId string) (*db.Group, error) {
-	dbConn, err := db.DB.MysqlDB.DefaultGormDB()
-	if err != nil {
-		return nil, utils.Wrap(err, "")
-	}
+func GetGroupInfoByGroupID(groupID string) (*db.Group, error) {
 	var groupInfo db.Group
-	err = dbConn.Table("groups").Where("group_id=?", groupId).Take(&groupInfo).Error
-	if err != nil {
-		return nil, err
-	}
-	return &groupInfo, nil
+	err := db.DB.MysqlDB.DefaultGormDB().Table("groups").Where("group_id=?", groupID).Take(&groupInfo).Error
+	return &groupInfo, err
 }
 
 func SetGroupInfo(groupInfo db.Group) error {
-	dbConn, err := db.DB.MysqlDB.DefaultGormDB()
-	if err != nil {
-		return err
-	}
-	err = dbConn.Table("groups").Where("group_id=?", groupInfo.GroupID).Update(&groupInfo).Error
-	return err
+	return db.DB.MysqlDB.DefaultGormDB().Table("groups").Where("group_id=?", groupInfo.GroupID).Updates(&groupInfo).Error
 }
 
-func GetGroupsByName(groupName string, pageNumber, showNumber int32) ([]db.Group, error) {
-	dbConn, err := db.DB.MysqlDB.DefaultGormDB()
-	var groups []db.Group
-	if err != nil {
-		return groups, err
-	}
-
-	err = dbConn.Table("groups").Where(fmt.Sprintf(" name like '%%%s%%' ", groupName)).Limit(showNumber).Offset(showNumber * (pageNumber - 1)).Find(&groups).Error
-	return groups, err
+type GroupWithNum struct {
+	db.Group
+	MemberCount int `gorm:"column:num"`
 }
 
-func GetGroups(pageNumber, showNumber int) ([]db.Group, error) {
-	dbConn, err := db.DB.MysqlDB.DefaultGormDB()
-	var groups []db.Group
-	if err != nil {
-		return groups, err
+func GetGroupsByName(groupName string, pageNumber, showNumber int32) ([]GroupWithNum, int64, error) {
+	var groups []GroupWithNum
+	var count int64
+	sql := db.DB.MysqlDB.DefaultGormDB().Table("groups").Select("groups.*, (select count(*) from group_members where group_members.group_id=groups.group_id) as num").
+		Where(" name like ? and status != ?", fmt.Sprintf("%%%s%%", groupName), constant.GroupStatusDismissed)
+	if err := sql.Count(&count).Error; err != nil {
+		return nil, 0, err
 	}
+	err := sql.Limit(int(showNumber)).Offset(int(showNumber * (pageNumber - 1))).Find(&groups).Error
+	return groups, count, err
+}
 
-	if err = dbConn.Table("groups").Limit(showNumber).Offset(showNumber * (pageNumber - 1)).Find(&groups).Error; err != nil {
+func GetGroups(pageNumber, showNumber int) ([]GroupWithNum, error) {
+	var groups []GroupWithNum
+	if err := db.DB.MysqlDB.DefaultGormDB().Table("groups").Select("groups.*, (select count(*) from group_members where group_members.group_id=groups.group_id) as num").
+		Limit(showNumber).Offset(showNumber * (pageNumber - 1)).Find(&groups).Error; err != nil {
 		return groups, err
 	}
 	return groups, nil
@@ -96,140 +85,22 @@ func OperateGroupStatus(groupId string, groupStatus int32) error {
 	return nil
 }
 
-func DeleteGroup(groupId string) error {
-	dbConn, err := db.DB.MysqlDB.DefaultGormDB()
-	if err != nil {
-		return err
-	}
-
-	var group db.Group
-	var groupMembers []db.GroupMember
-	if err := dbConn.Table("groups").Where("group_id=?", groupId).Delete(&group).Error; err != nil {
-		return err
-	}
-	if err := dbConn.Table("group_members").Where("group_id=?", groupId).Delete(groupMembers).Error; err != nil {
-		return err
-	}
-	return nil
-}
-
-func OperateGroupRole(userId, groupId string, roleLevel int32) (string, string, error) {
-	dbConn, err := db.DB.MysqlDB.DefaultGormDB()
-	if err != nil {
-		return "", "", err
-	}
-	groupMember := db.GroupMember{
-		UserID:  userId,
-		GroupID: groupId,
-	}
-	updateInfo := db.GroupMember{
-		RoleLevel: roleLevel,
-	}
-	groupMaster := db.GroupMember{}
-	switch roleLevel {
-	case constant.GroupOwner:
-		err = dbConn.Transaction(func(tx *gorm.DB) error {
-			result := dbConn.Table("group_members").Where("group_id = ? and role_level = ?", groupId, constant.GroupOwner).First(&groupMaster).Update(&db.GroupMember{
-				RoleLevel: constant.GroupOrdinaryUsers,
-			})
-			if result.Error != nil {
-				return result.Error
-			}
-			if result.RowsAffected == 0 {
-				return errors.New(fmt.Sprintf("user %s not exist in group %s or already operate", userId, groupId))
-			}
-
-			result = dbConn.Table("group_members").First(&groupMember).Update(updateInfo)
-			if result.Error != nil {
-				return result.Error
-			}
-			if result.RowsAffected == 0 {
-				return errors.New(fmt.Sprintf("user %s not exist in group %s or already operate", userId, groupId))
-			}
-			return nil
-		})
-
-	case constant.GroupOrdinaryUsers:
-		err = dbConn.Transaction(func(tx *gorm.DB) error {
-			result := dbConn.Table("group_members").Where("group_id = ? and role_level = ?", groupId, constant.GroupOwner).First(&groupMaster)
-			if result.Error != nil {
-				return result.Error
-			}
-			if result.RowsAffected == 0 {
-				return errors.New(fmt.Sprintf("user %s not exist in group %s or already operate", userId, groupId))
-			}
-			if groupMaster.UserID == userId {
-				return errors.New(fmt.Sprintf("user %s is master of %s, cant set to ordinary user", userId, groupId))
-			} else {
-				result = dbConn.Table("group_members").Find(&groupMember).Update(updateInfo)
-				if result.Error != nil {
-					return result.Error
-				}
-				if result.RowsAffected == 0 {
-					return errors.New(fmt.Sprintf("user %s not exist in group %s or already operate", userId, groupId))
-				}
-			}
-			return nil
-		})
-	}
-	return "", "", nil
-}
-
 func GetGroupsCountNum(group db.Group) (int32, error) {
-	dbConn, err := db.DB.MysqlDB.DefaultGormDB()
-	if err != nil {
+	var count int64
+	if err := db.DB.MysqlDB.DefaultGormDB().Table("groups").Where(" name like ? ", fmt.Sprintf("%%%s%%", group.GroupName)).Count(&count).Error; err != nil {
 		return 0, err
 	}
-
-	var count int32
-	if err := dbConn.Table("groups").Where(fmt.Sprintf(" name like '%%%s%%' ", group.GroupName)).Count(&count).Error; err != nil {
-		return 0, err
-	}
-	return count, nil
-}
-
-func GetGroupById(groupId string) (db.Group, error) {
-	dbConn, err := db.DB.MysqlDB.DefaultGormDB()
-	group := db.Group{
-		GroupID: groupId,
-	}
-	if err != nil {
-		return group, err
-	}
-
-	if err := dbConn.Table("groups").Find(&group).Error; err != nil {
-		return group, err
-	}
-	return group, nil
-}
-
-func GetGroupMaster(groupId string) (db.GroupMember, error) {
-	dbConn, err := db.DB.MysqlDB.DefaultGormDB()
-	groupMember := db.GroupMember{}
-	if err != nil {
-		return groupMember, err
-	}
-
-	if err := dbConn.Table("group_members").Where("role_level=? and group_id=?", constant.GroupOwner, groupId).Find(&groupMember).Error; err != nil {
-		return groupMember, err
-	}
-	return groupMember, nil
+	return int32(count), nil
 }
 
 func UpdateGroupInfoDefaultZero(groupID string, args map[string]interface{}) error {
-	dbConn, err := db.DB.MysqlDB.DefaultGormDB()
-	if err != nil {
-		return err
-	}
-	return dbConn.Table("groups").Where("group_id = ? ", groupID).Update(args).Error
+	return db.DB.MysqlDB.DefaultGormDB().Table("groups").Where("group_id = ? ", groupID).Updates(args).Error
 }
 
-func GetAllGroupIDList() ([]string, error) {
-	dbConn, err := db.DB.MysqlDB.DefaultGormDB()
-	if err != nil {
+func GetGroupIDListByGroupType(groupType int) ([]string, error) {
+	var groupIDList []string
+	if err := db.DB.MysqlDB.DefaultGormDB().Table("groups").Where("group_type = ? ", groupType).Pluck("group_id", &groupIDList).Error; err != nil {
 		return nil, err
 	}
-	var groupIDList []string
-	err = dbConn.Table("groups").Pluck("group_id", &groupIDList).Error
-	return groupIDList, err
+	return groupIDList, nil
 }

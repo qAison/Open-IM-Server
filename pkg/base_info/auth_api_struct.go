@@ -11,7 +11,7 @@ package base_info
 
 type UserRegisterReq struct {
 	Secret   string `json:"secret" binding:"required,max=32"`
-	Platform int32  `json:"platform" binding:"required,min=1,max=7"`
+	Platform int32  `json:"platform" binding:"required,min=1,max=12"`
 	ApiUserInfo
 	OperationID string `json:"operationID" binding:"required"`
 }
@@ -28,14 +28,25 @@ type UserRegisterResp struct {
 
 type UserTokenReq struct {
 	Secret      string `json:"secret" binding:"required,max=32"`
-	Platform    int32  `json:"platform" binding:"required,min=1,max=8"`
+	Platform    int32  `json:"platform" binding:"required,min=1,max=12"`
 	UserID      string `json:"userID" binding:"required,min=1,max=64"`
+	LoginIp     string `json:"loginIp"`
 	OperationID string `json:"operationID" binding:"required"`
 }
 
 type UserTokenResp struct {
 	CommResp
 	UserToken UserTokenInfo `json:"data"`
+}
+
+type ForceLogoutReq struct {
+	Platform    int32  `json:"platform" binding:"required,min=1,max=12"`
+	FromUserID  string `json:"fromUserID" binding:"required,min=1,max=64"`
+	OperationID string `json:"operationID" binding:"required"`
+}
+
+type ForceLogoutResp struct {
+	CommResp
 }
 
 type ParseTokenReq struct {
@@ -53,6 +64,6 @@ type ExpireTime struct {
 
 type ParseTokenResp struct {
 	CommResp
-	Data       map[string]interface{} `json:"data"`
+	Data       map[string]interface{} `json:"data" swaggerignore:"true"`
 	ExpireTime ExpireTime             `json:"-"`
 }

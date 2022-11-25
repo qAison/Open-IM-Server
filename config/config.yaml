@@ -1,55 +1,70 @@
 # The class cannot be named by Pascal or camel case.
+# The class cannot be named by Pascal or camel case.
 # If it is not used, the corresponding structure will not be set,
 # and it will not be read naturally.
-serverversion: 2.0.0
+serverversion: 2.3.1
 #---------------Infrastructure configuration---------------------#
 etcd:
   etcdSchema: openim  #默认即可
   etcdAddr: [ 127.0.0.1:2379 ] #单机部署时，默认即可
+  userName:
+  password:
+  secret:
 
 mysql:
   dbMysqlAddress: [ 127.0.0.1:13306 ] #mysql地址 目前仅支持单机，默认即可
-  dbMysqlUserName: root #mysql用户名，建议修改
-  dbMysqlPassword: openIM # mysql密码，建议修改
+  dbMysqlUserName:  #mysql用户名，建议修改
+  dbMysqlPassword:  # mysql密码，建议修改
   dbMysqlDatabaseName: openIM_v2 #默认即可
   dbTableName: eMsg #默认即可
   dbMsgTableNum: 1
-  dbMaxOpenConns: 20
+  dbMaxOpenConns: 100
   dbMaxIdleConns: 10
-  dbMaxLifeTime: 120
+  dbMaxLifeTime: 5
+  logLevel: 1 #1=slient 2=error 3=warn 4=info
+  slowThreshold: 500
 
 mongo:
   dbUri: ""#当dbUri值不为空则直接使用该值
-  dbAddress: [ 127.0.0.1:37017 ] #mongo地址 目前仅支持单机，默认即可
+  #dbAddress: 127.0.0.1:37017  #单机时为mongo地址，使用分片集群时，为mongos地址 默认即可
+  dbAddress: [ 127.0.0.1:37017 ]  #单机时为mongo地址，使用分片集群时，为mongos地址 默认即可
   dbDirect: false
-  dbTimeout: 10
+  dbTimeout: 60
   dbDatabase: openIM  #mongo db 默认即可
   dbSource: admin
-  dbUserName: #mongo用户名，建议先不设置
-  dbPassword: #mongo密码，建议先不设置
-  dbMaxPoolSize: 20
+  dbUserName:  #mongo用户名，建议先不设置
+  dbPassword:   #mongo密码，建议先不设置
+  dbMaxPoolSize: 100
   dbRetainChatRecords: 3650 #mongo保存离线消息时间（天），根据需求修改
+  chatRecordsClearTime: "* * * * *" # 每天凌晨3点清除消息，该配置和linux定时任务一样， 清理操作建议设置在用户活跃少的时候 # 0 3 * * *
 
 redis:
-  dbAddress: 127.0.0.1:16379 #redis地址 目前仅支持单机，默认即可
+  dbAddress: [ 127.0.0.1:16379 ] #redis地址 单机时，填写一个地址即可，使用redis集群时候，填写集群中多个节点地址（主从地址都可以填写，增加容灾能力），默认即可
   dbMaxIdle: 128
   dbMaxActive: 0
   dbIdleTimeout: 120
-  dbPassWord: openIM #redis密码 建议修改
+  dbUserName:     #only redis version 6.0+ need username
+  dbPassWord:  #redis密码 建议修改
+  enableCluster: false #如果外部redis以集群方式启动，需要打开此开关
 
 kafka:
+  SASLUserName: 
+  SASLPassword:
   ws2mschat:
     addr: [ 127.0.0.1:9092 ] #kafka配置，默认即可
-    topic: "ws2ms_chat"
-  ws2mschatoffline:
+    topic: "ws2ms_chat" #用于mongo和mysql保存消息
+#  ws2mschatoffline:
+#    addr: [ 127.0.0.1:9092 ] #kafka配置，默认即可
+#    topic: "ws2ms_chat_offline" #原为离线用户消息处理，目前暂时弃用
+  msgtomongo:
     addr: [ 127.0.0.1:9092 ] #kafka配置，默认即可
-    topic: "ws2ms_chat_offline"
+    topic: "msg_to_mongo"
   ms2pschat:
     addr: [ 127.0.0.1:9092 ] #kafka配置，默认即可
-    topic: "ms2ps_chat"
+    topic: "ms2ps_chat" #消息push
   consumergroupid:
-    msgToMongo: mongo
-    msgToMongoOffline: mongo_offline
+    msgToTransfer: mongo
+    msgToMongo: mongo_ex
     msgToMySql: mysql
     msgToPush: push
 
@@ -63,10 +78,10 @@ kafka:
 #如果是单机模式，用0.0.0.0或者不填，默认即可
 serverip: 0.0.0.0
 
-rpcRegisterIP: 127.0.0.1
+#作为rpc时，注册到etcd的地址，单机默认即可，如果是集群部署，需要修改（具体使用内网地址还是外网地址，要依情况而定，目的是api/gateway能访问到）
+rpcRegisterIP:
+#默认即可
 listenIP: 0.0.0.0
-
-
 
 # endpoints 内部组件间访问的端点host名称，访问时，可以内部直接访问 host:port 来访问
 endpoints:
@@ -79,9 +94,7 @@ endpoints:
   rpc_group: openim_rpc_group
   rpc_msg: openim_rpc_msg
   rpc_user: openim_rpc_user
-  rpc_statistic: openim_rpc_statistic
   rpc_admin_cms: openim_rpc_admin_cms
-  rpc_message_cms: openim_rpc_admin_cms
   rpc_office: openim_rpc_office
 
 api:
@@ -93,6 +106,9 @@ cmsapi:
 sdk:
   openImSdkWsPort: [ 10003 ] #jssdk服务端口，默认即可，项目中使用jssdk才需开放此端口或做nginx转发
   dataDir: [ ../db/sdk/ ]
+  openImWsAddress: ws://127.0.0.1:10001
+  openImApiAddress: http://127.0.0.1:10002
+
 #对象存储服务，以下配置二选一，目前支持两种，腾讯云和minio，二者配置好其中一种即可（如果使用minio参考https://doc.rentsoft.cn/#/qa/minio搭建minio服务器）
 credential: #腾讯cos，发送图片、视频、文件时需要，请自行申请后替换，必须修改
   tencent:
@@ -105,11 +121,13 @@ credential: #腾讯cos，发送图片、视频、文件时需要，请自行申�
     bucket: openim # 存储内容桶
     appBucket: app # 存储app的桶
     location: us-east-1
-    endpoint: http://127.0.0.1:10005 #minio外网ip 这个ip是给客户端访问的
-    endpointInner: http://127.0.0.1:10005 #minio内网地址 如果im server 可以通过内网访问到 minio就可以填写
+    endpoint:  #minio外网ip 这个ip是给客户端访问的
+    endpointInner: http://127.0.0.1:10005 #minio内网地址 如果im server 可以通过内网访问到 minio就可以
     endpointInnerEnable: true #是否启用minio内网地址 启用可以让桶初始化，IM server连接minio走内网地址访问
-    accessKeyID: user12345
-    secretAccessKey: key12345
+    accessKeyID:
+    secretAccessKey:
+    storageTime: 50 #文件在minio中保存的时间
+    isDistributedMod: false # 是否分布式多硬盘部署 默认docker-compose中为false
   ali: # ali oss
     regionID: "oss-cn-beijing"
     accessKeyID: ""
@@ -120,7 +138,15 @@ credential: #腾讯cos，发送图片、视频、文件时需要，请自行申�
     finalHost: "http://bucket1.oss-cn-beijing.aliyuncs.com"
     stsDurationSeconds: 3600
     OssRoleArn: "acs:ram::xxx:role/xxx"
-
+  aws:
+    accessKeyID: 1                            #AssumeRole用户关联的accessKeyID
+    accessKeySecret: 2     #AssumeRole用户关联的accessKeySecrect
+    region: ap-southeast-1                                        #分区
+    bucket: ouyang                                                #桶
+    finalHost:  ouyang.s3.ap-southeast-1.amazonaws.com            #对外Host
+    roleArn: arn:aws:iam::192209831083:role/AWS_S3_FOR_OUYANG     #RoleArn
+    externalId: AssumeRoleExtend                                  #角色扩展Id
+    roleSessionName: Required-AWS-ID-OPENIM                       #角色SESSION名称
 
 
 rpcport: #rpc服务端口 默认即可
@@ -131,13 +157,12 @@ rpcport: #rpc服务端口 默认即可
   openImGroupPort: [ 10150 ]
   openImAuthPort: [ 10160 ]
   openImPushPort: [ 10170 ]
-  openImStatisticsPort: [ 10180 ]
-  openImMessageCmsPort: [ 10190 ]
   openImAdminCmsPort: [ 10200 ]
   openImOfficePort: [ 10210 ]
   openImOrganizationPort: [ 10220 ]
   openImConversationPort: [ 10230 ]
-  openImCachePort: [10240]
+  openImCachePort: [ 10240 ]
+  openImRealTimeCommPort: [ 11300 ]
   c2c:
     callbackBeforeSendMsg:
       switch: false
@@ -151,13 +176,11 @@ rpcport: #rpc服务端口 默认即可
 rpcregistername: #rpc注册服务名，默认即可
   openImUserName: User
   openImFriendName: Friend
-  openImOfflineMessageName: OfflineMessage
+  openImMsgName: Msg
   openImPushName: Push
-  openImOnlineMessageRelayName: OnlineMessageRelay
+  openImRelayName: Relay
   openImGroupName: Group
   openImAuthName: Auth
-  openImStatisticsName: Statistics
-  openImMessageCMSName: MessageCMS
   openImAdminCMSName: AdminCMS
   openImOfficeName: Office
   openImOrganizationName: Organization
@@ -167,7 +190,7 @@ rpcregistername: #rpc注册服务名，默认即可
 log:
   storageLocation: ../logs/
   rotationTime: 24
-  remainRotationCount: 3 #日志数量
+  remainRotationCount: 2 #日志数量
   #日志级别 6表示全都打印，测试阶段建议设置为6
   remainLogLevel: 6
   elasticSearchSwitch: false
@@ -195,18 +218,29 @@ push:
     android:
       accessID: 111
       secretKey: 111
-    enable: false
+    enable: false # true or false (bool)
   jpns: #极光推送 在极光后台申请后，修改以下四项，必须修改
     appKey: cf47465a368f24c659608e7e
     masterSecret: 02204efe3f3832947a236ee5
     pushUrl: "https://api.jpush.cn/v3/push"
     pushIntent: "intent:#Intent;component=io.openim.app.enterprisechat/io.openim.app.enterprisechat.MainActivity;end"
-    enable: true
-  getui:  #个推推送，暂未测试 暂不要使用
-    pushUrl: "https://restapi.getui.com/v2/$appId"
+    enable: false # true or false (bool)
+  getui:  #个推推送
+    pushUrl: 
     masterSecret: ""
     appKey: ""
     intent: ""
+    enable: # true or false (bool)
+    channelID: ""
+    channelName: ""
+  fcm:  #firebase cloud message 消息推送
+    serviceAccount: "openim-5c6c0-firebase-adminsdk-ppwol-8765884a78.json" #帐号文件，此处需要改修配置，并且这个文件放在 config目录下
+    enable: false
+  mob:  #袤博推送
+    appKey: "3377f689a25" #帐号文件，此处需要改修配置，并且这个文件放在 config目录下
+    pushUrl: "https://api.push.mob.com/v3/push/createPush"
+    scheme: "dianzhijiaunilinks://dianzhijia.com?page=rent"
+    appSecret: "77b4e20e94db3a776b87d8693be23e"
     enable: false
 
 
@@ -215,22 +249,31 @@ manager:
   #app管理员userID和对应的secret  建议修改。 用于管理后台登录，也可以用户管理后台对应的api
   appManagerUid: [ "openIM123456","openIM654321", "openIM333", "openIMAdmin"]
   secrets: [ "openIM1","openIM2", "openIM333", "openIMAdmin"]
+  appSysNotificationName: "系统通知"
 
-secret: tuoyun
+secret:
 # 多端互踢策略
 # 1：多平台登录：Android、iOS、Windows、Mac 每种平台只能一个在线，web端可以多个同时在线
 multiloginpolicy: 1
 
-#chat log insert to db
-chatPersistenceMysql: true
+#msg log insert to db
+chatpersistencemysql: true
+#可靠性存储
+reliablestorage: false
+#消息缓存时间
+msgCacheTimeout: 86400
+#群聊已读开启
+groupMessageHasReadReceiptEnable: true
+#单聊已读开启
+singleMessageHasReadReceiptEnable: true
 
 #token config
 tokenpolicy:
-  accessSecret: "open_im_server" #token生成相关，默认即可
+  accessSecret:  #token生成相关，默认即可
   # Token effective time day as a unit
-  accessExpire: 3650 #token过期时间（天） 默认即可
+  accessExpire:  #token过期时间（天） 默认即可
 messageverify:
-  friendVerify: false
+  friendVerify:
 
 #  c2c:
 #    callbackBeforeSendMsg:
@@ -245,12 +288,13 @@ messageverify:
 iospush:
   pushSound: "xxx"
   badgeCount: true
+  production: false
 
 callback:
   # callback url 需要自行更换callback url
   callbackUrl : "http://127.0.0.1:8080/callback"
   # 开启关闭操作前后回调的配置
-  callbackbeforeSendSingleMsg:
+  callbackBeforeSendSingleMsg:
     enable: false # 回调是否启用
     callbackTimeOut: 2 # 回调超时时间
     callbackFailedContinue: true # 回调超时是否继续执行代码
@@ -264,11 +308,39 @@ callback:
   callbackAfterSendGroupMsg:
     enable: false
     callbackTimeOut: 2
-  callbackWordFilter:
+  callbackMsgModify:
     enable: false
     callbackTimeOut: 2
     callbackFailedContinue: true
-
+  callbackUserOnline:
+    enable: false
+    callbackTimeOut: 2
+  callbackUserOffline:
+    enable: false
+    callbackTimeOut: 2
+  callbackUserKickOff:
+    enable: false
+    callbackTimeOut: 2
+  callbackOfflinePush:
+    enable: false
+    callbackTimeOut: 2
+    callbackFailedContinue: true # 回调超时是否继续离线推送
+  callbackOnlinePush:
+    enable: false
+    callbackTimeOut: 2
+    callbackFailedContinue: true # 回调超时是否继续离线推送
+  callbackSuperGroupOnlinePush:
+    enable: false
+    callbackTimeOut: 2
+    callbackFailedContinue: true # 回调超时是否继续离线推送
+  callbackBeforeAddFriend:
+    enable: false
+    callbackTimeOut: 2
+    callbackFailedContinue: true # 回调超时是否继续
+  callbackBeforeCreateGroup:
+    enable: false
+    callbackTimeOut: 2
+    callbackFailedContinue: true # 回调超时是否继续
 
 notification:
   groupCreated:
@@ -317,7 +389,7 @@ notification:
       desc: "memberQuit desc"
       ext: "memberQuit ext"
     defaultTips:
-      tips: "quit group chat"  # group info changed by xx
+      tips: "quit group msg"  # group info changed by xx
 
   groupApplicationAccepted:
     conversation:
@@ -605,7 +677,7 @@ notification:
   #####################conversation#########################
   conversationOptUpdate:
     conversation:
-      reliabilityLevel: 2
+      reliabilityLevel: 1
       unreadCount: false
       offlinePush:
         switch: true
@@ -655,7 +727,6 @@ notification:
       defaultTips:
         tips: "welcome user join department"
 
-
 #---------------demo configuration---------------------#
 #The following configuration items are applied to openIM Demo configuration
 #是否启动demo，如果自身没有账号体系，设置为true
@@ -664,14 +735,25 @@ demo:
   listenIP: 0.0.0.0
   #demo对外服务端口，默认即可，需要开放此端口或做nginx转发
   openImDemoPort: [ 10004 ]
-  alismsverify: #阿里云短信配置，在阿里云申请成功后修改以下四项，必须修改
+  alismsverify: #阿里云短信配置，在阿里云申请成功后修改以下四项，enable为true则必须修改，阿里云为默认短信验证方式
     accessKeyId: LTAI5tJPkn4HuuePdiLdGqe7
     accessKeySecret: 4n9OJ7ZCVN1U6KeHDAtOyNeVZcjOuV
     signName: 托云信息技术
     verificationCodeTemplateCode: SMS_226810164
+    enable: false
+  tencentsms: #腾讯云短信配置，在腾讯云申请成功后，修改以下选项，enable为true则必须修改
+    appID:  2400000648
+    region: "ap-singapore"
+    secretID: IKIDra4JPGsFMDwQedMq42lESQBgwwgBQQAe
+    secretKey: HI6fz4uUotjJdiX6QUIrAE2buxlKdgU2
+    signName: ""
+    verificationCodeTemplateCode: 2902877
+    enable: true
   superCode: 666666 #超级验证码，建议修改掉，收不到短信验证码时可以用此替代
+  needInvitationCode: false
   #  second
-  codeTTL: 300
+  codeTTL: 60
+  useSuperCode: true
   mail: #仅支持qq邮箱，具体操作参考 https://service.mail.qq.com/cgi-bin/help?subtype=1&id=28&no=1001256 必须修改
     title: "openIM"
     senderMail: "765567899@qq.com"
@@ -679,7 +761,34 @@ demo:
     smtpAddr: "smtp.qq.com"
     smtpPort: 25   #需开放此端口 出口方向
   testDepartMentID: 001
+  imAPIURL: http://127.0.0.1:10002
+  onboardProcess: false # 是否开启注册流程
+  createOrganizationUserAndJoinDepartment: false
+  joinDepartmentIDList: [] # 用户注册进来默认加的部门ID列表 不填就随机
+  joinDepartmentGroups: false # 注册是否加部门群
+  oaNotification: false # 注册是否发送OA通知
+
+workMoment:
+  onlyFriendCanSee: false
+
 
 rtc:
-  port: 11300
-  address: 127.0.0.1
+  signalTimeout: 35
+
+# prometheus每个服务监听的端口数量需要和rpc port保持一致
+prometheus:
+  enable: false
+  userPrometheusPort: [ 20110 ]
+  friendPrometheusPort: [ 20120 ]
+  messagePrometheusPort: [ 20130 ]
+  messageGatewayPrometheusPort: [ 20140 ]
+  groupPrometheusPort: [ 20150 ]
+  authPrometheusPort: [ 20160 ]
+  pushPrometheusPort: [ 20170 ]
+  adminCmsPrometheusPort: [ 20200 ]
+  officePrometheusPort: [ 20210 ]
+  organizationPrometheusPort: [ 20220 ]
+  conversationPrometheusPort: [ 20230 ]
+  cachePrometheusPort: [ 20240 ]
+  realTimeCommPrometheusPort: [ 21300 ]
+  messageTransferPrometheusPort: [ 21400, 21401, 21402, 21403 ] # 端口数量和 script/path_info.cfg  msg_transfer_service_num保持一致

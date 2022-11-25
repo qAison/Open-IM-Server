@@ -5,7 +5,9 @@ import (
 	"Open_IM/pkg/common/constant"
 	"Open_IM/pkg/common/db"
 	imdb "Open_IM/pkg/common/db/mysql_model/im_mysql_model"
+	rocksCache "Open_IM/pkg/common/db/rocks_cache"
 	"Open_IM/pkg/common/log"
+	promePkg "Open_IM/pkg/common/prometheus"
 	"Open_IM/pkg/grpc-etcdv3/getcdv3"
 	pbConversation "Open_IM/pkg/proto/conversation"
 	"Open_IM/pkg/utils"
@@ -13,6 +15,8 @@ import (
 	"net"
 	"strconv"
 	"strings"
+
+	grpcPrometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 
 	"Open_IM/pkg/common/config"
 
@@ -30,6 +34,7 @@ func (rpc *rpcConversation) ModifyConversationField(c context.Context, req *pbCo
 	log.NewInfo(req.OperationID, utils.GetSelfFuncName(), "req: ", req.String())
 	resp := &pbConversation.ModifyConversationFieldResp{}
 	var err error
+	isSyncConversation := true
 	if req.Conversation.ConversationType == constant.GroupChatType {
 		groupInfo, err := imdb.GetGroupInfoByGroupID(req.Conversation.GroupID)
 		if err != nil {
@@ -37,7 +42,7 @@ func (rpc *rpcConversation) ModifyConversationField(c context.Context, req *pbCo
 			resp.CommonResp = &pbConversation.CommonResp{ErrCode: constant.ErrDB.ErrCode, ErrMsg: constant.ErrDB.ErrMsg}
 			return resp, nil
 		}
-		if groupInfo.Status == constant.GroupStatusDismissed && !req.Conversation.IsNotInGroup {
+		if groupInfo.Status == constant.GroupStatusDismissed && !req.Conversation.IsNotInGroup && req.FieldType != constant.FieldUnread {
 			errMsg := "group status is dismissed"
 			resp.CommonResp = &pbConversation.CommonResp{ErrCode: constant.ErrDB.ErrCode, ErrMsg: errMsg}
 			return resp, nil
@@ -70,6 +75,11 @@ func (rpc *rpcConversation) ModifyConversationField(c context.Context, req *pbCo
 		err = imdb.UpdateColumnsConversations(haveUserID, req.Conversation.ConversationID, map[string]interface{}{"ex": conversation.Ex})
 	case constant.FieldAttachedInfo:
 		err = imdb.UpdateColumnsConversations(haveUserID, req.Conversation.ConversationID, map[string]interface{}{"attached_info": conversation.AttachedInfo})
+	case constant.FieldUnread:
+		isSyncConversation = false
+		err = imdb.UpdateColumnsConversations(haveUserID, req.Conversation.ConversationID, map[string]interface{}{"update_unread_count_time": conversation.UpdateUnreadCountTime})
+	case constant.FieldBurnDuration:
+		err = imdb.UpdateColumnsConversations(haveUserID, req.Conversation.ConversationID, map[string]interface{}{"burn_duration": conversation.BurnDuration})
 	}
 	if err != nil {
 		log.NewError(req.OperationID, utils.GetSelfFuncName(), "UpdateColumnsConversations error", err.Error())
@@ -78,6 +88,10 @@ func (rpc *rpcConversation) ModifyConversationField(c context.Context, req *pbCo
 	}
 	for _, v := range utils.DifferenceString(haveUserID, req.UserIDList) {
 		conversation.OwnerUserID = v
+		err = rocksCache.DelUserConversationIDListFromCache(v)
+		if err != nil {
+			log.NewError(req.OperationID, utils.GetSelfFuncName(), v, req.Conversation.ConversationID, err.Error())
+		}
 		err := imdb.SetOneConversation(conversation)
 		if err != nil {
 			log.NewError(req.OperationID, utils.GetSelfFuncName(), "SetConversation error", err.Error())
@@ -85,6 +99,7 @@ func (rpc *rpcConversation) ModifyConversationField(c context.Context, req *pbCo
 			return resp, nil
 		}
 	}
+
 	// notification
 	if req.Conversation.ConversationType == constant.SingleChatType && req.FieldType == constant.FieldIsPrivateChat {
 		//sync peer user conversation if conversation is singleChatType
@@ -93,10 +108,24 @@ func (rpc *rpcConversation) ModifyConversationField(c context.Context, req *pbCo
 			resp.CommonResp = &pbConversation.CommonResp{ErrCode: constant.ErrDB.ErrCode, ErrMsg: constant.ErrDB.ErrMsg}
 			return resp, nil
 		}
+
 	} else {
-		for _, v := range req.UserIDList {
-			chat.ConversationChangeNotification(req.OperationID, v)
+		if isSyncConversation {
+			for _, v := range req.UserIDList {
+				if err = rocksCache.DelConversationFromCache(v, req.Conversation.ConversationID); err != nil {
+					log.NewError(req.OperationID, utils.GetSelfFuncName(), v, req.Conversation.ConversationID, err.Error())
+				}
+				chat.ConversationChangeNotification(req.OperationID, v)
+			}
+		} else {
+			for _, v := range req.UserIDList {
+				if err = rocksCache.DelConversationFromCache(v, req.Conversation.ConversationID); err != nil {
+					log.NewError(req.OperationID, utils.GetSelfFuncName(), v, req.Conversation.ConversationID, err.Error())
+				}
+				chat.ConversationUnreadChangeNotification(req.OperationID, v, req.Conversation.ConversationID, conversation.UpdateUnreadCountTime)
+			}
 		}
+
 	}
 	log.NewInfo(req.OperationID, utils.GetSelfFuncName(), "rpc return", resp.String())
 	resp.CommonResp = &pbConversation.CommonResp{}
@@ -121,6 +150,14 @@ func syncPeerUserConversation(conversation *pbConversation.Conversation, operati
 	if err != nil {
 		log.NewError(operationID, utils.GetSelfFuncName(), "SetConversation error", err.Error())
 		return err
+	}
+	err = rocksCache.DelConversationFromCache(conversation.UserID, utils.GetConversationIDBySessionType(conversation.OwnerUserID, constant.SingleChatType))
+	if err != nil {
+		log.NewError(operationID, utils.GetSelfFuncName(), "DelConversationFromCache failed", err.Error(), conversation.OwnerUserID, conversation.ConversationID)
+	}
+	err = rocksCache.DelConversationFromCache(conversation.OwnerUserID, conversation.ConversationID)
+	if err != nil {
+		log.NewError(operationID, utils.GetSelfFuncName(), "DelConversationFromCache failed", err.Error(), conversation.OwnerUserID, conversation.ConversationID)
 	}
 	chat.ConversationSetPrivateNotification(operationID, conversation.OwnerUserID, conversation.UserID, conversation.IsPrivateChat)
 	return nil
@@ -152,23 +189,35 @@ func (rpc *rpcConversation) Run() {
 	}
 	log.NewInfo("0", "listen network success, ", address, listener)
 	//grpc server
-	srv := grpc.NewServer()
+	var grpcOpts []grpc.ServerOption
+	if config.Config.Prometheus.Enable {
+		promePkg.NewGrpcRequestCounter()
+		promePkg.NewGrpcRequestFailedCounter()
+		promePkg.NewGrpcRequestSuccessCounter()
+		grpcOpts = append(grpcOpts, []grpc.ServerOption{
+			// grpc.UnaryInterceptor(promePkg.UnaryServerInterceptorProme),
+			grpc.StreamInterceptor(grpcPrometheus.StreamServerInterceptor),
+			grpc.UnaryInterceptor(grpcPrometheus.UnaryServerInterceptor),
+		}...)
+	}
+	srv := grpc.NewServer(grpcOpts...)
 	defer srv.GracefulStop()
 
 	//service registers with etcd
 	pbConversation.RegisterConversationServer(srv, rpc)
-	rpcRegisterIP := ""
+	rpcRegisterIP := config.Config.RpcRegisterIP
 	if config.Config.RpcRegisterIP == "" {
 		rpcRegisterIP, err = utils.GetLocalIP()
 		if err != nil {
 			log.Error("", "GetLocalIP failed ", err.Error())
 		}
 	}
+	log.NewInfo("", "rpcRegisterIP", rpcRegisterIP)
 	err = getcdv3.RegisterEtcd(rpc.etcdSchema, strings.Join(rpc.etcdAddr, ","), rpcRegisterIP, rpc.rpcPort, rpc.rpcRegisterName, 10)
 	if err != nil {
 		log.NewError("0", "RegisterEtcd failed ", err.Error(),
 			rpc.etcdSchema, strings.Join(rpc.etcdAddr, ","), rpcRegisterIP, rpc.rpcPort, rpc.rpcRegisterName)
-		return
+		panic(utils.Wrap(err, "register conversation module  rpc to etcd err"))
 	}
 	log.NewInfo("0", "RegisterConversationServer ok ", rpc.etcdSchema, strings.Join(rpc.etcdAddr, ","), rpcRegisterIP, rpc.rpcPort, rpc.rpcRegisterName)
 	err = srv.Serve(listener)

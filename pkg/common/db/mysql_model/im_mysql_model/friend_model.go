@@ -2,18 +2,15 @@ package im_mysql_model
 
 import (
 	"Open_IM/pkg/common/db"
-	_ "github.com/jinzhu/gorm/dialects/mysql"
+	"fmt"
 	"time"
+
+	_ "github.com/jinzhu/gorm/dialects/mysql"
 )
 
 func InsertToFriend(toInsertFollow *db.Friend) error {
-	dbConn, err := db.DB.MysqlDB.DefaultGormDB()
-	if err != nil {
-		return err
-	}
 	toInsertFollow.CreateTime = time.Now()
-
-	err = dbConn.Table("friends").Create(toInsertFollow).Error
+	err := db.DB.MysqlDB.DefaultGormDB().Table("friends").Create(toInsertFollow).Error
 	if err != nil {
 		return err
 	}
@@ -21,12 +18,8 @@ func InsertToFriend(toInsertFollow *db.Friend) error {
 }
 
 func GetFriendRelationshipFromFriend(OwnerUserID, FriendUserID string) (*db.Friend, error) {
-	dbConn, err := db.DB.MysqlDB.DefaultGormDB()
-	if err != nil {
-		return nil, err
-	}
 	var friend db.Friend
-	err = dbConn.Table("friends").Where("owner_user_id=? and friend_user_id=?", OwnerUserID, FriendUserID).Take(&friend).Error
+	err := db.DB.MysqlDB.DefaultGormDB().Table("friends").Where("owner_user_id=? and friend_user_id=?", OwnerUserID, FriendUserID).Take(&friend).Error
 	if err != nil {
 		return nil, err
 	}
@@ -34,15 +27,10 @@ func GetFriendRelationshipFromFriend(OwnerUserID, FriendUserID string) (*db.Frie
 }
 
 func GetFriendListByUserID(OwnerUserID string) ([]db.Friend, error) {
-	dbConn, err := db.DB.MysqlDB.DefaultGormDB()
-	if err != nil {
-		return nil, err
-	}
 	var friends []db.Friend
 	var x db.Friend
 	x.OwnerUserID = OwnerUserID
-	err = dbConn.Table("friends").Where("owner_user_id=?", OwnerUserID).Find(&friends).Error
-
+	err := db.DB.MysqlDB.DefaultGormDB().Table("friends").Where("owner_user_id=?", OwnerUserID).Find(&friends).Error
 	if err != nil {
 		return nil, err
 	}
@@ -50,12 +38,8 @@ func GetFriendListByUserID(OwnerUserID string) ([]db.Friend, error) {
 }
 
 func GetFriendIDListByUserID(OwnerUserID string) ([]string, error) {
-	dbConn, err := db.DB.MysqlDB.DefaultGormDB()
-	if err != nil {
-		return nil, err
-	}
 	var friendIDList []string
-	err = dbConn.Table("friends").Where("owner_user_id=?", OwnerUserID).Pluck("friend_user_id", &friendIDList).Error
+	err := db.DB.MysqlDB.DefaultGormDB().Table("friends").Where("owner_user_id=?", OwnerUserID).Pluck("friend_user_id", &friendIDList).Error
 	if err != nil {
 		return nil, err
 	}
@@ -63,29 +47,40 @@ func GetFriendIDListByUserID(OwnerUserID string) ([]string, error) {
 }
 
 func UpdateFriendComment(OwnerUserID, FriendUserID, Remark string) error {
-	dbConn, err := db.DB.MysqlDB.DefaultGormDB()
-	if err != nil {
-		return err
-	}
-	err = dbConn.Exec("update friends set remark=? where owner_user_id=? and friend_user_id=?", Remark, OwnerUserID, FriendUserID).Error
-	return err
+	return db.DB.MysqlDB.DefaultGormDB().Exec("update friends set remark=? where owner_user_id=? and friend_user_id=?", Remark, OwnerUserID, FriendUserID).Error
 }
 
 func DeleteSingleFriendInfo(OwnerUserID, FriendUserID string) error {
-	dbConn, err := db.DB.MysqlDB.DefaultGormDB()
-	if err != nil {
-		return err
-	}
-	err = dbConn.Table("friends").Where("owner_user_id=? and friend_user_id=?", OwnerUserID, FriendUserID).Delete(db.Friend{}).Error
-	return err
+	return db.DB.MysqlDB.DefaultGormDB().Table("friends").Where("owner_user_id=? and friend_user_id=?", OwnerUserID, FriendUserID).Delete(db.Friend{}).Error
 }
 
-//type Friend struct {
-//	OwnerUserID    string    `gorm:"column:owner_user_id;primaryKey;"`
-//	FriendUserID   string    `gorm:"column:friend_user_id;primaryKey;"`
-//	Remark         string    `gorm:"column:remark"`
-//	CreateTime     time.Time `gorm:"column:create_time"`
-//	AddSource      int32     `gorm:"column:add_source"`
-//	OperatorUserID string    `gorm:"column:operator_user_id"`
-//	Ex             string    `gorm:"column:ex"`
-//}
+type FriendUser struct {
+	db.Friend
+	Nickname string `gorm:"column:name;size:255"`
+}
+
+func GetUserFriendsCMS(ownerUserID, friendUserName string, pageNumber, showNumber int32) (friendUserList []*FriendUser, count int64, err error) {
+	db := db.DB.MysqlDB.DefaultGormDB().Table("friends").
+		Select("friends.*, users.name").
+		Where("friends.owner_user_id=?", ownerUserID).Limit(int(showNumber)).
+		Joins("left join users on friends.friend_user_id = users.user_id").
+		Offset(int(showNumber * (pageNumber - 1)))
+	if friendUserName != "" {
+		db = db.Where("users.name like ?", fmt.Sprintf("%%%s%%", friendUserName))
+	}
+	if err = db.Count(&count).Error; err != nil {
+		return
+	}
+	err = db.Find(&friendUserList).Error
+	return
+}
+
+func GetFriendByIDCMS(ownerUserID, friendUserID string) (friendUser *FriendUser, err error) {
+	friendUser = &FriendUser{}
+	err = db.DB.MysqlDB.DefaultGormDB().Table("friends").
+		Select("friends.*, users.name").
+		Where("friends.owner_user_id=? and friends.friend_user_id=?", ownerUserID, friendUserID).
+		Joins("left join users on friends.friend_user_id = users.user_id").
+		Take(friendUser).Error
+	return friendUser, err
+}

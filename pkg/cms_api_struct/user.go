@@ -1,63 +1,31 @@
 package cms_api_struct
 
 type UserResponse struct {
-	ProfilePhoto string `json:"profile_photo"`
-	Nickname     string `json:"nick_name"`
-	UserId       string `json:"user_id"`
-	CreateTime   string `json:"create_time,omitempty"`
-	IsBlock      bool   `json:"is_block"`
-}
-
-type GetUserRequest struct {
-	UserId string `form:"user_id" binding:"required"`
-}
-
-type GetUserResponse struct {
-	UserResponse
-}
-
-type GetUsersRequest struct {
-	RequestPagination
-}
-
-type GetUsersResponse struct {
-	Users []*UserResponse `json:"users"`
-	ResponsePagination
-	UserNums int32 `json:"user_nums"`
-}
-
-type GetUsersByNameRequest struct {
-	UserName string `form:"user_name" binding:"required"`
-	RequestPagination
-}
-
-type GetUsersByNameResponse struct {
-	Users []*UserResponse `json:"users"`
-	ResponsePagination
-	UserNums int32 `json:"user_nums"`
-}
-
-type ResignUserRequest struct {
-	UserId string `json:"user_id"`
-}
-
-type ResignUserResponse struct {
-}
-
-type AlterUserRequest struct {
-	UserId      string `json:"user_id" binding:"required"`
-	Nickname    string `json:"nickname"`
-	PhoneNumber int    `json:"phone_number" validate:"len=11"`
-	Email       string `json:"email"`
-}
-
-type AlterUserResponse struct {
+	FaceURL       string `json:"faceURL"`
+	Nickname      string `json:"nickName"`
+	UserID        string `json:"userID"`
+	CreateTime    string `json:"createTime,omitempty"`
+	CreateIp      string `json:"createIp,omitempty"`
+	LastLoginTime string `json:"lastLoginTime,omitempty"`
+	LastLoginIp   string `json:"lastLoginIP,omitempty"`
+	LoginTimes    int32  `json:"loginTimes"`
+	LoginLimit    int32  `json:"loginLimit"`
+	IsBlock       bool   `json:"isBlock"`
+	PhoneNumber   string `json:"phoneNumber"`
+	Email         string `json:"email"`
+	Birth         string `json:"birth"`
+	Gender        int    `json:"gender"`
 }
 
 type AddUserRequest struct {
-	PhoneNumber string `json:"phone_number" binding:"required"`
-	UserId      string `json:"user_id" binding:"required"`
+	OperationID string `json:"operationID" binding:"required"`
+	PhoneNumber string `json:"phoneNumber" binding:"required"`
+	UserId      string `json:"userID" binding:"required"`
 	Name        string `json:"name" binding:"required"`
+	Email       string `json:"email"`
+	Birth       string `json:"birth"`
+	Gender      string `json:"gender"`
+	FaceURL     string `json:"faceURL"`
 }
 
 type AddUserResponse struct {
@@ -65,46 +33,44 @@ type AddUserResponse struct {
 
 type BlockUser struct {
 	UserResponse
-	BeginDisableTime string `json:"begin_disable_time"`
-	EndDisableTime   string `json:"end_disable_time"`
+	BeginDisableTime string `json:"beginDisableTime"`
+	EndDisableTime   string `json:"endDisableTime"`
 }
 
 type BlockUserRequest struct {
-	UserId         string `json:"user_id" binding:"required"`
-	EndDisableTime string `json:"end_disable_time" binding:"required"`
+	OperationID    string `json:"operationID" binding:"required"`
+	UserID         string `json:"userID" binding:"required"`
+	EndDisableTime string `json:"endDisableTime" binding:"required"`
 }
 
 type BlockUserResponse struct {
 }
 
 type UnblockUserRequest struct {
-	UserId string `json:"user_id" binding:"required"`
+	OperationID string `json:"operationID" binding:"required"`
+	UserID      string `json:"userID" binding:"required"`
 }
 
 type UnBlockUserResponse struct {
 }
 
 type GetBlockUsersRequest struct {
+	OperationID string `json:"operationID" binding:"required"`
 	RequestPagination
 }
 
 type GetBlockUsersResponse struct {
-	BlockUsers []BlockUser `json:"block_users"`
+	BlockUsers []BlockUser `json:"blockUsers"`
 	ResponsePagination
-	UserNums int32 `json:"user_nums"`
+	UserNums int32 `json:"userNums"`
 }
 
-type GetBlockUserRequest struct {
-	UserId string `form:"user_id" binding:"required"`
+type GetUserIDByEmailAndPhoneNumberRequest struct {
+	OperationID string `json:"operationID" binding:"required"`
+	PhoneNumber string `json:"phoneNumber"`
+	Email       string `json:"email"`
 }
 
-type GetBlockUserResponse struct {
-	BlockUser
-}
-
-type DeleteUserRequest struct {
-	UserId string `json:"user_id" binding:"required"`
-}
-
-type DeleteUserResponse struct {
+type GetUserIDByEmailAndPhoneNumberResponse struct {
+	UserIDList []string `json:"userIDList"`
 }

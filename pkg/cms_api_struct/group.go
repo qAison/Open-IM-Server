@@ -1,144 +1,64 @@
 package cms_api_struct
 
 type GroupResponse struct {
-	GroupName        string `json:"group_name"`
-	GroupID          string `json:"group_id"`
-	GroupMasterName  string `json:"group_master_name"`
-	GroupMasterId    string `json:"group_master_id"`
-	CreateTime       string `json:"create_time"`
-	IsBanChat        bool   `json:"is_ban_chat"`
-	IsBanPrivateChat bool   `json:"is_ban_private_chat"`
-	ProfilePhoto     string `json:"profile_photo"`
-}
-
-type GetGroupByIdRequest struct {
-	GroupId string `form:"group_id" binding:"required"`
-}
-
-type GetGroupByIdResponse struct {
-	GroupResponse
-}
-
-type GetGroupRequest struct {
-	GroupName string `form:"group_name" binding:"required"`
-	RequestPagination
-}
-
-type GetGroupResponse struct {
-	Groups    []GroupResponse `json:"groups"`
-	GroupNums int             `json:"group_nums"`
-	ResponsePagination
+	GroupOwnerName         string `json:"GroupOwnerName"`
+	GroupOwnerID           string `json:"GroupOwnerID"`
+	GroupID                string `json:"groupID"`
+	GroupName              string `json:"groupName"`
+	Notification           string `json:"notification"`
+	Introduction           string `json:"introduction"`
+	FaceURL                string `json:"faceURL"`
+	OwnerUserID            string `json:"ownerUserID"`
+	CreateTime             uint32 `json:"createTime"`
+	MemberCount            uint32 `json:"memberCount"`
+	Ex                     string `json:"ex"`
+	Status                 int32  `json:"status"`
+	CreatorUserID          string `json:"creatorUserID"`
+	GroupType              int32  `json:"groupType"`
+	NeedVerification       int32  `json:"needVerification"`
+	LookMemberInfo         int32  `json:"lookMemberInfo"`
+	ApplyMemberFriend      int32  `json:"applyMemberFriend"`
+	NotificationUpdateTime uint32 `json:"notificationUpdateTime"`
+	NotificationUserID     string `json:"notificationUserID"`
 }
 
 type GetGroupsRequest struct {
 	RequestPagination
+	OperationID string `json:"operationID" binding:"required"`
+	GroupID     string `json:"groupID"`
+	GroupName   string `json:"groupName"`
 }
 
 type GetGroupsResponse struct {
 	Groups    []GroupResponse `json:"groups"`
-	GroupNums int             `json:"group_nums"`
+	GroupNums int             `json:"groupNums"`
 	ResponsePagination
 }
 
-type CreateGroupRequest struct {
-	GroupName     string   `json:"group_name" binding:"required"`
-	GroupMasterId string   `json:"group_master_id" binding:"required"`
-	GroupMembers  []string `json:"group_members" binding:"required"`
-}
-
-type CreateGroupResponse struct {
-}
-
-type SetGroupMasterRequest struct {
-	GroupId string `json:"group_id" binding:"required"`
-	UserId  string `json:"user_id" binding:"required"`
-}
-
-type SetGroupMasterResponse struct {
-}
-
-type SetGroupMemberRequest struct {
-	GroupId string `json:"group_id" binding:"required"`
-	UserId  string `json:"user_id" binding:"required"`
-}
-
-type SetGroupMemberRespones struct {
-}
-
-type BanGroupChatRequest struct {
-	GroupId string `json:"group_id" binding:"required"`
-}
-
-type BanGroupChatResponse struct {
-}
-
-type BanPrivateChatRequest struct {
-	GroupId string `json:"group_id" binding:"required"`
-}
-
-type BanPrivateChatResponse struct {
-}
-
-type DeleteGroupRequest struct {
-	GroupId string `json:"group_id" binding:"required"`
-}
-
-type DeleteGroupResponse struct {
-}
-
 type GetGroupMembersRequest struct {
-	GroupId  string `form:"group_id" binding:"required"`
-	UserName string `form:"user_name"`
+	GroupID     string `form:"groupID" binding:"required"`
+	UserName    string `form:"userName"`
+	OperationID string `json:"operationID" binding:"required"`
 	RequestPagination
 }
 
 type GroupMemberResponse struct {
-	MemberPosition int    `json:"member_position"`
-	MemberNickName string `json:"member_nick_name"`
-	MemberId       string `json:"member_id"`
-	JoinTime       string `json:"join_time"`
+	GroupID        string `json:"groupID"`
+	UserID         string `json:"userID"`
+	RoleLevel      int32  `json:"roleLevel"`
+	JoinTime       int32  `json:"joinTime"`
+	Nickname       string `json:"nickname"`
+	FaceURL        string `json:"faceURL"`
+	AppMangerLevel int32  `json:"appMangerLevel"` //if >0
+	JoinSource     int32  `json:"joinSource"`
+	OperatorUserID string `json:"operatorUserID"`
+	Ex             string `json:"ex"`
+	MuteEndTime    uint32 `json:"muteEndTime"`
+	InviterUserID  string `json:"inviterUserID"`
 }
 
 type GetGroupMembersResponse struct {
-	GroupMembers []GroupMemberResponse `json:"group_members"`
+	GroupMembers []GroupMemberResponse `json:"groupMembers"`
 	ResponsePagination
-	MemberNums int `json:"member_nums"`
-}
-
-type GroupMemberRequest struct {
-	GroupId string   `json:"group_id" binding:"required"`
-	Members []string `json:"members" binding:"required"`
-}
-
-type GroupMemberOperateResponse struct {
-	Success []string `json:"success"`
-	Failed  []string `json:"failed"`
-}
-
-type AddGroupMembersRequest struct {
-	GroupMemberRequest
-}
-
-type AddGroupMembersResponse struct {
-	GroupMemberOperateResponse
-}
-
-type RemoveGroupMembersRequest struct {
-	GroupMemberRequest
-}
-
-type RemoveGroupMembersResponse struct {
-	GroupMemberOperateResponse
-}
-
-type AlterGroupInfoRequest struct {
-	GroupID      string `json:"group_id"`
-	GroupName    string `json:"group_name"`
-	Notification string `json:"notification"`
-	Introduction string `json:"introduction"`
-	ProfilePhoto string `json:"profile_photo"`
-	GroupType    int    `json:"group_type"`
-}
-
-type AlterGroupInfoResponse struct {
+	MemberNums int `json:"memberNums"`
 }

@@ -33,6 +33,10 @@ func Int32ToString(i int32) string {
 	return strconv.FormatInt(int64(i), 10)
 }
 
+func Uint32ToString(i uint32) string {
+	return strconv.FormatInt(int64(i), 10)
+}
+
 //judge a string whether in the  string list
 func IsContain(target string, List []string) bool {
 	for _, element := range List {
@@ -51,7 +55,14 @@ func IsContainInt32(target int32, List []int32) bool {
 	}
 	return false
 }
-
+func IsContainInt(target int, List []int) bool {
+	for _, element := range List {
+		if target == element {
+			return true
+		}
+	}
+	return false
+}
 func InterfaceArrayToStringArray(data []interface{}) (i []string) {
 	for _, param := range data {
 		i = append(i, param.(string))
@@ -95,4 +106,16 @@ func int64ToString(i int64) string {
 }
 func Int64ToString(i int64) string {
 	return strconv.FormatInt(i, 10)
+}
+
+func RemoveDuplicateElement(idList []string) []string {
+	result := make([]string, 0, len(idList))
+	temp := map[string]struct{}{}
+	for _, item := range idList {
+		if _, ok := temp[item]; !ok {
+			temp[item] = struct{}{}
+			result = append(result, item)
+		}
+	}
+	return result
 }

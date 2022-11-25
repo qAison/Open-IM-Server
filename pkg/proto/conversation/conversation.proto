@@ -1,5 +1,5 @@
 syntax = "proto3";
-option go_package = "./conversation;conversation";
+option go_package = "Open_IM/pkg/proto/conversation;conversation";
 package conversation;
 
 message CommonResp{
@@ -21,6 +21,9 @@ message Conversation{
   int32 groupAtType = 12;
   bool isNotInGroup = 13;
   string ex = 14;
+  int64  updateUnreadCountTime = 15;
+  int32 burnDuration = 16;
+
 }
 message ModifyConversationFieldReq{
   Conversation conversation = 1;

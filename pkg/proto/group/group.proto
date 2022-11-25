@@ -1,6 +1,7 @@
 syntax = "proto3";
-import "Open_IM/pkg/proto/sdk_ws/ws.proto";
-option go_package = "./group;group";
+import "Open-IM-Server/pkg/proto/sdk_ws/ws.proto";
+import "Open-IM-Server/pkg/proto/sdk_ws/wrappers.proto";
+option go_package = "Open_IM/pkg/proto/group;group";
 package group;
 
 message CommonResp{
@@ -12,7 +13,6 @@ message GroupAddMemberInfo{
   string UserID = 1;
   int32 RoleLevel = 2;
 }
-
 
 message CreateGroupReq{
   repeated GroupAddMemberInfo InitMemberList = 1;
@@ -43,7 +43,7 @@ message GetGroupsInfoResp{
 
 
 message SetGroupInfoReq{
-  server_api_params.GroupInfo GroupInfo = 1;
+  server_api_params.GroupInfoForSet groupInfoForSet = 1;
   string OpUserID = 2; //app manager or group owner
   string OperationID = 3;
 }
@@ -91,6 +91,9 @@ message JoinGroupReq{
   string ReqMessage = 2;
   string OpUserID = 3;
   string OperationID = 4;
+  int32 JoinSource = 5;
+  string InviterUserID = 6;
+
 }
 message JoinGroupResp{
   CommonResp CommonResp = 1;
@@ -201,6 +204,8 @@ message GetGroupAllMemberReq {
   string GroupID = 1;
   string OpUserID = 2; //No verification permission
   string OperationID = 3;
+  int32 Offset = 4;
+  int32 Count = 5;
 }
 message GetGroupAllMemberResp {
   int32   ErrCode = 1;
@@ -210,79 +215,32 @@ message GetGroupAllMemberResp {
 
 message CMSGroup {
     server_api_params.GroupInfo GroupInfo = 1;
-    string GroupMasterName = 2;
-    string GroupMasterId = 3;
+    string GroupOwnerUserName = 2;
+    string GroupOwnerUserID = 3;
 }
 
-message GetGroupReq {
-    string GroupName = 1;
-    server_api_params.RequestPagination Pagination = 2;
-    string OperationID = 3;
-}
-
-message GetGroupResp {
-    repeated CMSGroup CMSGroups = 1;
-    server_api_params.RequestPagination Pagination = 2;
-    int32 GroupNums = 3;
-}
 
 message GetGroupsReq {
     server_api_params.RequestPagination Pagination = 1;
-    string OperationID = 2;
+    string GroupName = 2;
+    string GroupID = 3;
+    string OperationID = 4;
 }
 
 message GetGroupsResp {
     repeated CMSGroup CMSGroups = 1;
-    server_api_params.RequestPagination Pagination = 2;
+    server_api_params.ResponsePagination Pagination = 2;
     int32 GroupNum = 3;
+    CommonResp commonResp = 4;
 }
 
 message GetGroupMemberReq {
-    string GroupId = 1;
+    string GroupID = 1;
     string OperationID = 2;
 }
 
-message OperateGroupStatusReq {
-    string GroupId = 1;
-    int32 Status = 2;
-    string OperationID = 3;
-}
-
-message OperateGroupStatusResp {
-
-}
-
-message OperateUserRoleReq {
-  string GroupId = 1;
-  string UserId = 2;
-  int32 RoleLevel = 3;
-  string OperationID = 4;
-}
- 
-message OperateUserRoleResp {
-
-}
-
-message DeleteGroupReq {
-  string GroupId = 1;
-  string OperationID = 2;
-}
-
-message DeleteGroupResp {
-
-}
-
-message GetGroupByIdReq {
-  string GroupId = 1;
-  string OperationID = 2;
-}
-
-message GetGroupByIdResp {
-  CMSGroup CMSGroup = 1;
-}
-
 message GetGroupMembersCMSReq {
-   string GroupId = 1;
+   string GroupID = 1;
    string UserName = 2;
    server_api_params.RequestPagination Pagination = 3;
    string OperationID = 4;
@@ -292,30 +250,7 @@ message GetGroupMembersCMSResp {
    repeated server_api_params.GroupMemberFullInfo members = 1;
    server_api_params.ResponsePagination Pagination = 2;
    int32 MemberNums = 3;
-}
-
-message RemoveGroupMembersCMSReq {
-  string GroupId = 1;
-  repeated string UserIds = 2;
-  string OperationID = 3;
-  string OpUserId = 4;
-}
-
-message RemoveGroupMembersCMSResp {
-  repeated string success = 1;
-  repeated string failed = 2;
-}
-
-message AddGroupMembersCMSReq {
-  string GroupId = 1;
-  repeated string UserIds = 2;
-  string OperationId = 3;
-  string OpUserId = 4;
-}
-
-message AddGroupMembersCMSResp {
-  repeated string success = 1;
-  repeated string failed = 2;
+   CommonResp commonResp = 4;
 }
 
 message DismissGroupReq{
@@ -391,7 +326,54 @@ message SetGroupMemberNicknameResp{
   CommonResp CommonResp = 1;
 }
 
+message GetJoinedSuperGroupListReq {
+  string operationID = 1;
+  string userID = 2;
+  string opUserID = 3;
+}
 
+message GetJoinedSuperGroupListResp {
+  CommonResp commonResp = 1;
+  repeated server_api_params.GroupInfo GroupList = 3;
+}
+
+message GetSuperGroupsInfoReq {
+  repeated string GroupIDList = 1;
+  string OperationID = 2;
+  string OpUserID = 3; //No verification permission
+}
+
+message GetSuperGroupsInfoResp {
+  CommonResp commonResp = 1;
+  repeated server_api_params.GroupInfo GroupInfoList = 3;
+}
+
+message SetGroupMemberInfoReq{
+  string groupID = 1;
+  string userID = 2;
+  string opUserID = 3;
+  string operationID = 4;
+  google.protobuf.StringValue nickname = 5;
+  google.protobuf.StringValue faceURL = 6;
+  google.protobuf.Int32Value roleLevel = 7;
+  google.protobuf.StringValue ex = 8;
+}
+
+message SetGroupMemberInfoResp{
+  CommonResp CommonResp = 1;
+}
+
+message GetGroupAbstractInfoReq{
+  string groupID = 1;
+  string opUserID = 2; 
+  string operationID = 3;
+}
+
+message GetGroupAbstractInfoResp{
+  CommonResp CommonResp = 1;
+  int32 groupMemberNumber = 2;
+  uint64 groupMemberListHash = 3;
+}
 
 
 service group{
@@ -411,15 +393,9 @@ service group{
   rpc inviteUserToGroup(InviteUserToGroupReq) returns (InviteUserToGroupResp);
   rpc getGroupAllMember(GetGroupAllMemberReq) returns(GetGroupAllMemberResp);
 
-  rpc GetGroupById(GetGroupByIdReq) returns(GetGroupByIdResp);
-  rpc GetGroup(GetGroupReq) returns(GetGroupResp);
   rpc GetGroups(GetGroupsReq) returns(GetGroupsResp);
-  rpc OperateGroupStatus(OperateGroupStatusReq) returns(OperateGroupStatusResp);
-  rpc OperateUserRole(OperateUserRoleReq) returns(OperateUserRoleResp);
-  rpc DeleteGroup(DeleteGroupReq) returns(DeleteGroupResp);
   rpc GetGroupMembersCMS(GetGroupMembersCMSReq) returns(GetGroupMembersCMSResp);
-  rpc RemoveGroupMembersCMS(RemoveGroupMembersCMSReq) returns(RemoveGroupMembersCMSResp);
-  rpc AddGroupMembersCMS(AddGroupMembersCMSReq) returns(AddGroupMembersCMSResp);
+
 
   rpc DismissGroup(DismissGroupReq) returns(DismissGroupResp);
   rpc MuteGroupMember(MuteGroupMemberReq) returns(MuteGroupMemberResp);
@@ -428,7 +404,10 @@ service group{
   rpc CancelMuteGroup(CancelMuteGroupReq) returns(CancelMuteGroupResp);
 
   rpc SetGroupMemberNickname(SetGroupMemberNicknameReq) returns (SetGroupMemberNicknameResp);
-
+  rpc GetJoinedSuperGroupList(GetJoinedSuperGroupListReq) returns (GetJoinedSuperGroupListResp);
+  rpc GetSuperGroupsInfo(GetSuperGroupsInfoReq) returns (GetSuperGroupsInfoResp);
+  rpc SetGroupMemberInfo(SetGroupMemberInfoReq) returns (SetGroupMemberInfoResp);
+  rpc GetGroupAbstractInfo(GetGroupAbstractInfoReq) returns (GetGroupAbstractInfoResp);
 }
 
 

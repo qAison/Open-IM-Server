@@ -93,11 +93,16 @@ func GroupDBCopyOpenIM(dst *open_im_sdk.GroupInfo, src *db.Group) error {
 	}
 	dst.OwnerUserID = user.UserID
 
-	dst.MemberCount, err = imdb.GetGroupMemberNumByGroupID(src.GroupID)
+	memberCount, err := imdb.GetGroupMemberNumByGroupID(src.GroupID)
+	dst.MemberCount = uint32(memberCount)
 	if err != nil {
 		return utils.Wrap(err, "")
 	}
 	dst.CreateTime = uint32(src.CreateTime.Unix())
+	dst.NotificationUpdateTime = uint32(src.NotificationUpdateTime.Unix())
+	if src.NotificationUpdateTime.Unix() < 0 {
+		dst.NotificationUpdateTime = 0
+	}
 	return nil
 }
 
@@ -118,7 +123,7 @@ func GroupMemberDBCopyOpenIM(dst *open_im_sdk.GroupMemberFullInfo, src *db.Group
 		dst.AppMangerLevel = 1
 	}
 	dst.JoinTime = int32(src.JoinTime.Unix())
-	if src.MuteEndTime.Unix() < 0 {
+	if src.JoinTime.Unix() < 0 {
 		dst.JoinTime = 0
 		return nil
 	}
@@ -141,14 +146,15 @@ func GroupRequestDBCopyOpenIM(dst *open_im_sdk.GroupRequest, src *db.GroupReques
 
 func UserOpenIMCopyDB(dst *db.User, src *open_im_sdk.UserInfo) {
 	utils.CopyStructFields(dst, src)
-	dst.Birth = utils.UnixSecondToTime(int64(src.Birth))
+	dst.Birth, _ = utils.TimeStringToTime(src.BirthStr)
 	dst.CreateTime = utils.UnixSecondToTime(int64(src.CreateTime))
 }
 
 func UserDBCopyOpenIM(dst *open_im_sdk.UserInfo, src *db.User) {
 	utils.CopyStructFields(dst, src)
 	dst.CreateTime = uint32(src.CreateTime.Unix())
-	dst.Birth = uint32(src.Birth.Unix())
+	//dst.Birth = uint32(src.Birth.Unix())
+	dst.BirthStr = utils.TimeToString(src.Birth)
 }
 
 func UserDBCopyOpenIMPublicUser(dst *open_im_sdk.PublicUserInfo, src *db.User) {

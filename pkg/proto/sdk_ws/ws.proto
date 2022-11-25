@@ -1,6 +1,8 @@
 syntax = "proto3";
-option go_package = "./sdk_ws;server_api_params";
+import "Open-IM-Server/pkg/proto/sdk_ws/wrappers.proto";
+option go_package = "Open_IM/pkg/proto/sdk_ws;server_api_params";
 package server_api_params;
+
 
 ////////////////////////////////base///////////////////////////////
 
@@ -18,6 +20,23 @@ message GroupInfo{
   int32 status = 10;
   string creatorUserID = 11;
   int32 groupType = 12;
+  int32 needVerification = 13;
+  int32 lookMemberInfo =14;
+  int32 applyMemberFriend = 15;
+  uint32 notificationUpdateTime = 16;
+  string notificationUserID = 17;
+}
+
+message GroupInfoForSet{
+  string groupID = 1;
+  string groupName = 2;
+  string notification = 3;
+  string introduction = 4;
+  string faceURL = 5;
+  string ex = 6;
+  google.protobuf.Int32Value needVerification  = 7;
+  google.protobuf.Int32Value lookMemberInfo  = 8;
+  google.protobuf.Int32Value applyMemberFriend  = 9;
 }
 
 
@@ -33,6 +52,7 @@ message GroupMemberFullInfo {
   string operatorUserID = 9;
   string ex = 10;
   uint32 muteEndTime = 11;
+  string inviterUserID = 12;
 }
 
 message PublicUserInfo{
@@ -54,6 +74,8 @@ message UserInfo{
   string ex = 8;
   uint32 createTime = 9;
   int32 appMangerLevel = 10;
+  int32 globalRecvMsgOpt = 11;
+  string birthStr = 12;
 }
 
 message FriendInfo{
@@ -85,6 +107,8 @@ message GroupRequest{
   string handleUserID = 7;
   uint32 handleTime = 8;
   string ex = 9;
+  int32 joinSource = 10;
+  string inviterUserID = 11;
 }
 
 message FriendRequest{
@@ -134,6 +158,7 @@ message OrganizationUser  {
     string  email    = 9;
     uint32   createTime = 10;
     string ex      = 11;
+    string birthStr = 12;
 }
 
 message DepartmentMember {
@@ -170,30 +195,54 @@ message  UserInDepartment {
 
 
 ///////////////////////////////////base end/////////////////////////////////////
+message PullMessageBySeqListReq{
+  string userID = 1;
+  string operationID = 2;
+  repeated uint32 seqList = 3;
+  map <string, seqList>groupSeqList = 4;
+}
+
+message seqList {
+    repeated uint32 seqList = 1;
+}
+
+
+message MsgDataList {
+    repeated MsgData msgDataList = 1;
+}
 
 message PullMessageBySeqListResp {
   int32 errCode = 1;
   string errMsg = 2;
   repeated MsgData list = 3;
+  map<string, MsgDataList> groupMsgDataList = 4;
 }
-message PullMessageBySeqListReq{
-  string userID = 1;
-  string operationID = 2;
-  repeated uint32 seqList = 3;
-}
+
+
+
 message GetMaxAndMinSeqReq {
+    repeated string groupIDList = 1;
+    string userID = 2;
+    string  operationID =3;
+}
+message MaxAndMinSeq{
+  uint32 maxSeq = 1;
+  uint32 minSeq = 2;
 }
 message GetMaxAndMinSeqResp {
   uint32 maxSeq = 1;
   uint32 minSeq = 2;
+  int32 errCode = 3;
+  string errMsg = 4;
+  map<string, MaxAndMinSeq> groupMaxAndMinSeq = 5;
 }
 
 message UserSendMsgResp {
   string serverMsgID = 1;
   string clientMsgID = 2;
   int64  sendTime = 3;
-
 }
+
 message MsgData {
   string  sendID = 1;
   string  recvID = 2;
@@ -214,6 +263,9 @@ message MsgData {
   map<string, bool> options = 18;
   OfflinePushInfo offlinePushInfo = 19;
   repeated string atUserIDList = 20;
+  bytes msgDataList = 21;
+  string attachedInfo = 22;
+  string  ex = 23;
 
 }
 message OfflinePushInfo{
@@ -437,6 +489,10 @@ message UserInfoUpdatedTips{
 //////////////////////conversation/////////////////////
 message ConversationUpdateTips{
  string UserID = 1;
+ repeated string conversationIDList = 2;
+ int64 updateUnreadCountTime = 3;
+
+
 }
 
 message ConversationSetPrivateTips{
@@ -445,7 +501,12 @@ message ConversationSetPrivateTips{
  bool isPrivate = 3;
 }
 
-
+////////////////////message///////////////////////
+message DeleteMessageTips{
+  string opUserID = 1;
+  string userID =2;
+  repeated uint32 seqList = 3;
+}
 ///cms
 message RequestPagination {
   int32 pageNumber = 1;
@@ -467,6 +528,11 @@ message SignalReq {
       SignalAcceptReq accept = 4;
       SignalHungUpReq hungUp = 5;
       SignalRejectReq reject = 6;
+      SignalGetRoomByGroupIDReq getRoomByGroupID = 7;
+
+      SignalOnRoomParticipantConnectedReq onRoomParticipantConnectedReq = 8;
+      SignalOnRoomParticipantDisconnectedReq onRoomParticipantDisconnectedReq = 9;
+      SignalGetTokenByRoomIDReq getTokenByRoomID = 10;
   }
 }
 
@@ -474,12 +540,15 @@ message SignalResp {
   oneof payload {
     SignalInviteReply invite = 1;
     SignalInviteInGroupReply inviteInGroup= 2;
-    SignalCancelReply  cancel = 3;
+    SignalCancelReply cancel = 3;
     SignalAcceptReply accept = 4;
     SignalHungUpReply hungUp = 5;
     SignalRejectReply reject = 6;
+    SignalGetRoomByGroupIDReply getRoomByGroupID = 7;
+    SignalGetTokenByRoomIDReply getTokenByRoomID = 8;
   }
 }
+
 
 message InvitationInfo  {
     string inviterUserID = 1;
@@ -489,8 +558,10 @@ message InvitationInfo  {
     string roomID = 5;
     int32 timeout = 6;
     string mediaType = 7;
-     int32 platformID = 8;
-    int32   sessionType = 9;
+    int32 platformID = 8;
+    int32 sessionType = 9;
+    int32 initiateTime = 10;
+    repeated string busyLineUserIDList = 11;
 }
 
 message ParticipantMetaData{
@@ -511,6 +582,7 @@ message SignalInviteReply {
   string token = 1;
   string roomID = 2;
   string liveURL = 3;
+  repeated string busyLineUserIDList = 4;
 }
 
 message SignalInviteInGroupReq {
@@ -524,6 +596,7 @@ message SignalInviteInGroupReply {
   string token = 1;
   string roomID = 2;
   string liveURL = 3;
+  repeated string busyLineUserIDList = 4;
 }
 
 message SignalCancelReq {
@@ -572,6 +645,42 @@ message SignalRejectReq {
 
 message SignalRejectReply {
 
+}
+
+message SignalGetRoomByGroupIDReq {
+  string opUserID = 1;
+  string groupID = 2;
+  ParticipantMetaData participant = 3;
+}
+
+message SignalGetRoomByGroupIDReply {
+  InvitationInfo invitation = 1;
+  repeated ParticipantMetaData participant = 2;
+  string roomID = 3;
+}
+
+message SignalOnRoomParticipantConnectedReq {
+  InvitationInfo invitation = 1;
+  repeated ParticipantMetaData participant = 2;
+  string groupID = 3;
+}
+
+message SignalOnRoomParticipantDisconnectedReq {
+  InvitationInfo invitation = 1;
+  repeated ParticipantMetaData participant = 2;
+  string groupID = 3;
+}
+
+message SignalGetTokenByRoomIDReq {
+  string roomID = 1;
+  string opUserID = 2;
+  ParticipantMetaData participant = 3;
+  string operationID = 4;
+}
+
+message SignalGetTokenByRoomIDReply {
+  string token = 1;
+  string liveURL = 2;
 }
 
 

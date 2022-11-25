@@ -28,26 +28,34 @@ const (
 
 	///ContentType
 	//UserRelated
-	Text           = 101
-	Picture        = 102
-	Voice          = 103
-	Video          = 104
-	File           = 105
-	AtText         = 106
-	Merger         = 107
-	Card           = 108
-	Location       = 109
-	Custom         = 110
-	Revoke         = 111
-	HasReadReceipt = 112
-	Typing         = 113
-	Quote          = 114
-	Common         = 200
-	GroupMsg       = 201
+	Text                         = 101
+	Picture                      = 102
+	Voice                        = 103
+	Video                        = 104
+	File                         = 105
+	AtText                       = 106
+	Merger                       = 107
+	Card                         = 108
+	Location                     = 109
+	Custom                       = 110
+	Revoke                       = 111
+	HasReadReceipt               = 112
+	Typing                       = 113
+	Quote                        = 114
+	GroupHasReadReceipt          = 116
+	AdvancedText                 = 117
+	AdvancedRevoke               = 118 //影响前者消息
+	CustomNotTriggerConversation = 119
+	CustomOnlineOnly             = 120
+
+	Common             = 200
+	GroupMsg           = 201
+	SignalMsg          = 202
+	CustomNotification = 203
 
 	//SysRelated
-	NotificationBegin = 1000
-
+	NotificationBegin                     = 1000
+	DeleteMessageNotification             = 1100
 	FriendApplicationApprovedNotification = 1201 //add_friend_response
 	FriendApplicationRejectedNotification = 1202 //add_friend_response
 	FriendApplicationNotification         = 1203 //add_friend
@@ -66,35 +74,43 @@ const (
 
 	GroupNotificationBegin = 1500
 
-	GroupCreatedNotification             = 1501
-	GroupInfoSetNotification             = 1502
-	JoinGroupApplicationNotification     = 1503
-	MemberQuitNotification               = 1504
-	GroupApplicationAcceptedNotification = 1505
-	GroupApplicationRejectedNotification = 1506
-	GroupOwnerTransferredNotification    = 1507
-	MemberKickedNotification             = 1508
-	MemberInvitedNotification            = 1509
-	MemberEnterNotification              = 1510
-	GroupDismissedNotification           = 1511
-	GroupMemberMutedNotification         = 1512
-	GroupMemberCancelMutedNotification   = 1513
-	GroupMutedNotification               = 1514
-	GroupCancelMutedNotification         = 1515
-	GroupMemberInfoSetNotification       = 1516
+	GroupCreatedNotification                 = 1501
+	GroupInfoSetNotification                 = 1502
+	JoinGroupApplicationNotification         = 1503
+	MemberQuitNotification                   = 1504
+	GroupApplicationAcceptedNotification     = 1505
+	GroupApplicationRejectedNotification     = 1506
+	GroupOwnerTransferredNotification        = 1507
+	MemberKickedNotification                 = 1508
+	MemberInvitedNotification                = 1509
+	MemberEnterNotification                  = 1510
+	GroupDismissedNotification               = 1511
+	GroupMemberMutedNotification             = 1512
+	GroupMemberCancelMutedNotification       = 1513
+	GroupMutedNotification                   = 1514
+	GroupCancelMutedNotification             = 1515
+	GroupMemberInfoSetNotification           = 1516
+	GroupMemberSetToAdminNotification        = 1517
+	GroupMemberSetToOrdinaryUserNotification = 1518
 
 	SignalingNotificationBegin = 1600
 	SignalingNotification      = 1601
-	SignalingNotificationEnd   = 1699
+	SignalingNotificationEnd   = 1649
+
+	SuperGroupNotificationBegin  = 1650
+	SuperGroupUpdateNotification = 1651
+	MsgDeleteNotification        = 1652
+	SuperGroupNotificationEnd    = 1699
 
 	ConversationPrivateChatNotification = 1701
+	ConversationUnreadNotification      = 1702
 
 	OrganizationChangedNotification = 1801
 
 	WorkMomentNotificationBegin = 1900
 	WorkMomentNotification      = 1901
 
-	NotificationEnd = 2000
+	NotificationEnd = 3000
 
 	//status
 	MsgNormal  = 1
@@ -105,9 +121,9 @@ const (
 	SysMsgType  = 200
 
 	//SessionType
-	SingleChatType = 1
-	GroupChatType  = 2
-
+	SingleChatType       = 1
+	GroupChatType        = 2
+	SuperGroupChatType   = 3
 	NotificationChatType = 4
 	//token
 	NormalToken  = 0
@@ -124,6 +140,8 @@ const (
 	WebAndOther = 3
 	//The PC side is mutually exclusive, and the mobile side is mutually exclusive, but the web side can be online at the same time
 	PcMobileAndWeb = 4
+	//The PC terminal can be online at the same time,but other terminal only one of the endpoints can login
+	PCAndOther = 5
 
 	OnlineStatus  = "online"
 	OfflineStatus = "offline"
@@ -144,6 +162,7 @@ const (
 	IsSenderSync               = "senderSync"
 	IsNotPrivate               = "notPrivate"
 	IsSenderConversationUpdate = "senderConversationUpdate"
+	IsSenderNotificationPush   = "senderNotificationPush"
 
 	//GroupStatus
 	GroupOk              = 0
@@ -152,8 +171,9 @@ const (
 	GroupStatusMuted     = 3
 
 	//GroupType
-	NormalGroup     = 0
-	DepartmentGroup = 1
+	NormalGroup  = 0
+	SuperGroup   = 1
+	WorkingGroup = 2
 
 	GroupBaned          = 3
 	GroupBanPrivateChat = 4
@@ -161,9 +181,14 @@ const (
 	//UserJoinGroupSource
 	JoinByAdmin = 1
 
+	JoinByInvitation = 2
+	JoinBySearch     = 3
+	JoinByQRCode     = 4
+
 	//Minio
 	MinioDurationTimes = 3600
-
+	//Aws
+	AwsDurationTimes = 3600
 	// verificationCode used for
 	VerificationCodeForRegister       = 1
 	VerificationCodeForReset          = 2
@@ -171,11 +196,20 @@ const (
 	VerificationCodeForResetSuffix    = "_forReset"
 
 	//callbackCommand
-	CallbackBeforeSendSingleMsgCommand = "callbackBeforeSendSingleMsgCommand"
-	CallbackAfterSendSingleMsgCommand  = "callbackAfterSendSingleMsgCommand"
-	CallbackBeforeSendGroupMsgCommand  = "callbackBeforeSendGroupMsgCommand"
-	CallbackAfterSendGroupMsgCommand   = "callbackAfterSendGroupMsgCommand"
-	CallbackWordFilterCommand          = "callbackWordFilterCommand"
+	CallbackBeforeSendSingleMsgCommand  = "callbackBeforeSendSingleMsgCommand"
+	CallbackAfterSendSingleMsgCommand   = "callbackAfterSendSingleMsgCommand"
+	CallbackBeforeSendGroupMsgCommand   = "callbackBeforeSendGroupMsgCommand"
+	CallbackAfterSendGroupMsgCommand    = "callbackAfterSendGroupMsgCommand"
+	CallbackMsgModifyCommand            = "callbackMsgModifyCommand"
+	CallbackUserOnlineCommand           = "callbackUserOnlineCommand"
+	CallbackUserOfflineCommand          = "callbackUserOfflineCommand"
+	CallbackUserKickOffCommand          = "callbackUserKickOffCommand"
+	CallbackOfflinePushCommand          = "callbackOfflinePushCommand"
+	CallbackOnlinePushCommand           = "callbackOnlinePushCommand"
+	CallbackSuperGroupOnlinePushCommand = "callbackSuperGroupOnlinePushCommand"
+	CallbackBeforeAddFriendCommand      = "callbackBeforeAddFriendCommand"
+	CallbackBeforeCreateGroupCommand    = "callbackBeforeCreateGroup"
+
 	//callback actionCode
 	ActionAllow     = 0
 	ActionForbidden = 1
@@ -198,24 +232,38 @@ const (
 	WorkMomentCommentNotification = 0
 	WorkMomentLikeNotification    = 1
 	WorkMomentAtUserNotification  = 2
+
+	// sendMsgStaus
+	MsgStatusNotExist = 0
+	MsgIsSending      = 1
+	MsgSendSuccessed  = 2
+	MsgSendFailed     = 3
 )
+
 const (
-	AtAllString = "AtAllTag"
-	AtNormal    = 0
-	AtMe        = 1
-	AtAll       = 2
-	AtAllAtMe   = 3
+	WriteDiffusion = 0
+	ReadDiffusion  = 1
+)
+
+const (
+	AtAllString       = "AtAllTag"
+	AtNormal          = 0
+	AtMe              = 1
+	AtAll             = 2
+	AtAllAtMe         = 3
+	GroupNotification = 4
 )
 
 var ContentType2PushContent = map[int64]string{
-	Picture:  "[图片]",
-	Voice:    "[语音]",
-	Video:    "[视频]",
-	File:     "[文件]",
-	Text:     "你收到了一条文本消息",
-	AtText:   "[有人@你]",
-	GroupMsg: "你收到一条群聊消息",
-	Common:   "你收到一条新消息",
+	Picture:   "[图片]",
+	Voice:     "[语音]",
+	Video:     "[视频]",
+	File:      "[文件]",
+	Text:      "你收到了一条文本消息",
+	AtText:    "[有人@你]",
+	GroupMsg:  "你收到一条群聊消息",
+	Common:    "你收到一条新消息",
+	SignalMsg: "音视频通话邀请",
 }
 
 const (
@@ -226,6 +274,8 @@ const (
 	FieldGroupAtType   = 5
 	FieldIsNotInGroup  = 6
 	FieldEx            = 7
+	FieldUnread        = 8
+	FieldBurnDuration  = 9
 )
 
 const (
@@ -252,6 +302,17 @@ const (
 	ReliableNotificationMsg   = 3
 )
 
+const (
+	ApplyNeedVerificationInviteDirectly = 0 // 申请需要同意 邀请直接进
+	AllNeedVerification                 = 1 //所有人进群需要验证，除了群主管理员邀请进群
+	Directly                            = 2 //直接进群
+)
+
+const (
+	GroupRPCRecvSize = 30
+	GroupRPCSendSize = 30
+)
+
 const FriendAcceptTip = "You have successfully become friends, so start chatting"
 
 func GroupIsBanChat(status int32) bool {
@@ -268,8 +329,16 @@ func GroupIsBanPrivateChat(status int32) bool {
 	return true
 }
 
-const BigVersion = "v3"
+const (
+	TokenKicked = 1001
+)
+
+const BigVersion = "v2"
 
 const LogFileName = "OpenIM.log"
 
-const StatisticsTimeInterval = 300
+const StatisticsTimeInterval = 60
+
+const MaxNotificationNum = 100
+
+const CurrentVersion = "v2.3.4-rc0"
